@@ -1033,11 +1033,11 @@ async function loadFromSupabase() {
 
     COMPANY_ID = co.id;
 
-    // ── Load all data in parallel ──
+    // ── Load all data in parallel (fail gracefully so one bad query can't loop) ──
     const [projects, purchases, team] = await Promise.all([
-      sbGet('projects',     'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc'),
-      sbGet('purchases',    'company_id=eq.' + COMPANY_ID + '&order=ts.desc'),
-      sbGet('team_members', 'company_id=eq.' + COMPANY_ID)
+      sbGet('projects',     'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc').catch(() => []),
+      sbGet('purchases',    'company_id=eq.' + COMPANY_ID + '&order=ts.desc').catch(() => []),
+      sbGet('team_members', 'company_id=eq.' + COMPANY_ID).catch(() => [])
     ]);
 
     DB = {
@@ -1074,14 +1074,10 @@ async function loadFromSupabase() {
 
   } catch(err) {
     console.error('loadFromSupabase error:', err);
-    // If it's an auth error (401, expired JWT, etc.), clear session to prevent
-    // the auth.html <-> dashboard.html redirect loop
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('jwt') || msg.includes('expired') || msg.includes('invalid') ||
-        msg.includes('401') || msg.includes('unauthorized') || msg.includes('not authenticated')) {
-      setSession(null);
-      localStorage.removeItem('forge_company_id');
-    }
+    // Always clear session on error — if Supabase rejected us, the token is bad.
+    // This prevents the auth.html <-> dashboard.html redirect loop.
+    setSession(null);
+    localStorage.removeItem('forge_company_id');
     return false;
   }
 }
