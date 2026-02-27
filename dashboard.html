@@ -1893,11 +1893,14 @@ function renderTeam() {
   // Show/hide team header ... button based on admin status
   const teamDotBtn = document.getElementById('teamDotBtn');
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
-  const ownerEntry = {
+  // Only add ownerEntry for the actual company admin — workers already have a team_members row
+  const currentUid = getSession()?.user?.id;
+  const ownerEntry = isPrimaryAdmin ? {
     _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
-    email: '', role: 'owner', isOwner: true
-  };
-  const fullTeam = [ownerEntry, ...DB.team].sort((a, b) => {
+    email: '', role: 'owner', isOwner: true, user_id: currentUid
+  } : null;
+  const baseTeam = ownerEntry ? [ownerEntry, ...DB.team] : [...DB.team];
+  const fullTeam = baseTeam.sort((a, b) => {
     const la = (a.lastName || '').trim().toLowerCase();
     const lb = (b.lastName || '').trim().toLowerCase();
     if (!la && !lb) return 0;
