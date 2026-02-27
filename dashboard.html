@@ -1225,7 +1225,7 @@ async function loadFromSupabase() {
       }).filter(pu => pu.projectIdx >= 0),
       team: team.map(m => ({
         _id: m.id, firstName: m.first_name, lastName: m.last_name,
-        email: m.email, role: m.role
+        email: m.email, role: m.role, user_id: m.user_id || null
       }))
     };
 
@@ -2481,6 +2481,23 @@ async function saveProfile() {
     updatedSession.user.user_metadata = { ...(updatedSession.user.user_metadata || {}), ...newMeta };
     setSession(updatedSession);
 
+    // Also patch team_members row so the name shows correctly on admin's team tab
+    // (works for both workers and admins who are listed in team_members)
+    const uid = freshSession.user?.id;
+    if (uid) {
+      // team_members rows have a user_id column linking to auth.users
+      await fetch(SB_URL + '/rest/v1/team_members?user_id=eq.' + uid, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SB_KEY,
+          'Authorization': 'Bearer ' + freshSession.access_token,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ first_name: first, last_name: last })
+      }).catch(() => {}); // non-fatal — not all users have a team_members row yet
+    }
+
     // Update in-memory DB
     DB.firstName   = first;
     DB.lastName    = last;
@@ -2488,6 +2505,11 @@ async function saveProfile() {
     DB.phone       = phone;
     DB.avatarColor = _profileAvatarColor;
     DB.avatarImage = avatarImage;
+    // Also update the matching entry in DB.team so the team tab reflects immediately
+    if (uid) {
+      const myTeamEntry = DB.team.find(m => m.user_id === uid);
+      if (myTeamEntry) { myTeamEntry.firstName = first; myTeamEntry.lastName = last; }
+    }
 
     // Update sidebar avatar + name live
     const initials = (first[0] + (last[0]||'')).toUpperCase();
