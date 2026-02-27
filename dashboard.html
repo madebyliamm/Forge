@@ -1916,6 +1916,8 @@ function renderTeam() {
     const projSet = new Set(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).map(p=>p.projectIdx));
     const role    = (m.role||'worker').toLowerCase();
     const isOwner = !!m.isOwner;
+    const currentUid = getSession()?.user?.id;
+    const isYou = isOwner || (m.user_id && m.user_id === currentUid);
 
     const adminStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)`;
     const workerStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)`;
@@ -1948,7 +1950,7 @@ function renderTeam() {
         <span style="font-size:0.78rem;font-weight:600;flex-shrink:0">$${fmt(p.amount)}</span>
       </div>`).join('') : '';
 
-    return `<div class="member-card" onclick="${cardClick}">
+    return `<div class="member-card" onclick="${cardClick}" style="${isYou ? 'background:rgba(26,109,232,0.07);border-color:rgba(26,109,232,0.25);' : ''}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em;margin-bottom:1em">
         <div style="display:flex;align-items:center;gap:0.9em;min-width:0;flex:1;overflow:hidden">
           <div class="member-avatar" style="background:${col};flex-shrink:0">${init}</div>
