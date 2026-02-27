@@ -788,6 +788,43 @@ tr:hover td { background: rgba(255,255,255,0.015); }
   </div>
 </div>
 
+<!-- PERMISSIONS MODAL -->
+<div class="modal-bg" id="permsModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><div class="modal-title" id="permsModalTitle">Permissions</div><button class="modal-close" onclick="closeModal('permsModal')">✕</button></div>
+    <div id="permsModalMember" style="display:flex;align-items:center;gap:0.9em;padding:0.9em 1em;background:var(--surface2);border-radius:0.6em;margin-bottom:1.2em"></div>
+    <div id="permsAdminToggle" style="display:flex;align-items:center;justify-content:space-between;padding:0.75em 0;border-bottom:1px solid var(--border);margin-bottom:0.8em">
+      <div>
+        <div style="font-size:0.88rem;font-weight:600">Admin</div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:0.15em">Full access — same as account creator</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer">
+        <input type="checkbox" id="permsAdminCheck" onchange="onPermsAdminToggle()" style="opacity:0;width:0;height:0;position:absolute">
+        <span id="permsAdminTrack" style="position:absolute;inset:0;border-radius:999px;background:var(--border2);transition:background 0.2s"></span>
+        <span id="permsAdminThumb" style="position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></span>
+      </label>
+    </div>
+    <div id="permsChecklist" style="display:flex;flex-direction:column;gap:0.1em;max-height:320px;overflow-y:auto"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('permsModal')">Cancel</button>
+      <button class="btn-save" onclick="savePermissions()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- DEFAULT PERMS MODAL -->
+<div class="modal-bg" id="defaultPermsModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><div class="modal-title">Default Worker Permissions</div><button class="modal-close" onclick="closeModal('defaultPermsModal')">✕</button></div>
+    <div style="font-size:0.78rem;color:var(--muted);margin-bottom:1em">These permissions apply automatically when a new worker joins via invite link.</div>
+    <div id="defaultPermsChecklist" style="display:flex;flex-direction:column;gap:0.1em;max-height:340px;overflow-y:auto"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('defaultPermsModal')">Cancel</button>
+      <button class="btn-save" onclick="saveDefaultPerms()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- CUSTOM CONFIRM MODAL -->
 <div class="modal-bg" id="confirmModal">
   <div class="modal" style="max-width:380px">
@@ -1746,6 +1783,9 @@ function renderTeam() {
   if (linkInput) linkInput.value = getInviteLink();
 
   const isPrimaryAdmin = DB.role === 'admin';
+  // Show/hide team header ... button based on admin status
+  const teamDotBtn = document.getElementById('teamDotBtn');
+  if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
   const ownerEntry = {
     _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
     email: '', role: 'owner', isOwner: true
@@ -1763,20 +1803,21 @@ function renderTeam() {
     const role    = (m.role||'worker').toLowerCase();
     const isOwner = !!m.isOwner;
 
-    const roleTag = isOwner
-      ? `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Owner</span>`
-      : role === 'admin'
-        ? `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>`
-        : `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)">Worker</span>`;
+    const adminStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)`;
+    const workerStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)`;
+    const roleTag = (isOwner || role === 'admin')
+      ? `<span style="${adminStyle}">Admin</span>`
+      : `<span style="${workerStyle}">Worker</span>`;
 
     const teamIdx = DB.team.indexOf(m);
     const canManage = isPrimaryAdmin && !isOwner && teamIdx >= 0;
     const menuBtn = canManage ? `
       <div style="position:relative;flex-shrink:0">
-        <button class="tb-btn member-menu-btn" style="padding:0.2em 0.5em;font-size:0.78rem;line-height:1" onclick="event.stopPropagation();toggleMemberMenu(event,${teamIdx})">···</button>
-        <div class="member-menu" id="mmenu-${teamIdx}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:145px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
-          <button onclick="event.stopPropagation();promoteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">${role==='admin'?'Demote to Worker':'Promote to Admin'}</button>
-          <button onclick="event.stopPropagation();deleteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">Remove Member</button>
+        <button class="tb-btn member-menu-btn" style="padding:0.2em 0.5em;font-size:0.78rem;line-height:1;opacity:0;transition:opacity 0.15s" onclick="event.stopPropagation();toggleMemberMenu(event,${teamIdx})">···</button>
+        <div class="member-menu" id="mmenu-${teamIdx}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:165px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
+          <button onclick="event.stopPropagation();openPermsModal(${teamIdx})" style="display:flex;align-items:center;gap:0.55em;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'"><span>✅</span> Allowed</button>
+          <button onclick="event.stopPropagation();promoteMember(${teamIdx})" style="display:flex;align-items:center;gap:0.55em;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'"><span>${role==='admin'?'⬇️':'⬆️'}</span> ${role==='admin'?'Demote':'Promote to Admin'}</button>
+          <button onclick="event.stopPropagation();deleteMember(${teamIdx})" style="display:flex;align-items:center;gap:0.55em;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'"><span>🗑️</span> Remove</button>
         </div>
       </div>` : '';
 
@@ -1843,18 +1884,123 @@ function promoteMember(idx) {
   const isAdmin = (m.role||'').toLowerCase() === 'admin';
   const newRole = isAdmin ? 'Worker' : 'Admin';
   const action  = isAdmin ? 'Demote to Worker' : 'Promote to Admin';
+  // When promoting to admin, give full permissions; when demoting, use default worker perms
+  const newPerms = isAdmin ? (DB.defaultWorkerPerms || DEFAULT_WORKER_PERMISSIONS) : null;
   showConfirm(
     (isAdmin ? 'Remove admin access from ' : 'Give admin access to ') + m.firstName + ' ' + m.lastName + '?',
     async () => {
       DB.team[idx].role = newRole;
+      DB.team[idx].permissions = newPerms;
       renderTeam();
       try {
-        await sbPatch('team_members', 'id=eq.' + m._id, { role: newRole });
+        await sbPatch('team_members', 'id=eq.' + m._id, { role: newRole, permissions: newPerms });
       } catch(e) { console.error('promote failed', e); }
     },
     action,
     action
   );
+}
+
+// ── PERMISSIONS MODAL ──
+let _permsTargetIdx = null;
+
+function buildPermsChecklist(containerId, currentPerms, disabled) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = ALL_PERMISSIONS.map(p => {
+    const checked = currentPerms === null || currentPerms.includes(p.id); // null = all (admin)
+    return `<label style="display:flex;align-items:center;gap:0.75em;padding:0.7em 0.5em;border-radius:0.4em;cursor:${disabled?'default':'pointer'};transition:background 0.12s" onmouseenter="if(!${disabled})this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">
+      <input type="checkbox" data-perm="${p.id}" ${checked?'checked':''} ${disabled?'disabled':''} style="width:15px;height:15px;accent-color:var(--blue);cursor:${disabled?'default':'pointer'}">
+      <span style="font-size:0.75rem">${p.icon}</span>
+      <span style="font-size:0.85rem;${disabled?'color:var(--muted)':''}">${p.label}</span>
+    </label>`;
+  }).join('');
+}
+
+function openPermsModal(idx) {
+  _permsTargetIdx = idx;
+  const m = DB.team[idx];
+  const isAdmin = (m.role||'').toLowerCase() === 'admin';
+  const col = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+  const init = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
+
+  // Member header
+  document.getElementById('permsModalMember').innerHTML = `
+    <div style="width:38px;height:38px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0">${init}</div>
+    <div>
+      <div style="font-weight:600;font-size:0.95rem">${m.firstName} ${m.lastName}</div>
+      <div style="font-size:0.75rem;color:var(--muted)">${m.email||'Team member'}</div>
+    </div>`;
+
+  // Admin toggle
+  const adminCheck = document.getElementById('permsAdminCheck');
+  const adminTrack = document.getElementById('permsAdminTrack');
+  const adminThumb = document.getElementById('permsAdminThumb');
+  adminCheck.checked = isAdmin;
+  adminTrack.style.background = isAdmin ? 'var(--blue)' : 'var(--border2)';
+  adminThumb.style.transform = isAdmin ? 'translateX(18px)' : 'translateX(0)';
+
+  buildPermsChecklist('permsChecklist', isAdmin ? null : (m.permissions || DEFAULT_WORKER_PERMISSIONS), isAdmin);
+  openModal('permsModal');
+}
+
+function onPermsAdminToggle() {
+  const isAdmin = document.getElementById('permsAdminCheck').checked;
+  const track = document.getElementById('permsAdminTrack');
+  const thumb = document.getElementById('permsAdminThumb');
+  track.style.background = isAdmin ? 'var(--blue)' : 'var(--border2)';
+  thumb.style.transform = isAdmin ? 'translateX(18px)' : 'translateX(0)';
+  // Rebuild checklist — disabled+all checked if admin, otherwise editable
+  if (_permsTargetIdx !== null) {
+    const m = DB.team[_permsTargetIdx];
+    buildPermsChecklist('permsChecklist', isAdmin ? null : (m.permissions || DEFAULT_WORKER_PERMISSIONS), isAdmin);
+  }
+}
+
+async function savePermissions() {
+  if (_permsTargetIdx === null) return;
+  const m = DB.team[_permsTargetIdx];
+  const isAdmin = document.getElementById('permsAdminCheck').checked;
+  let perms = null;
+  if (!isAdmin) {
+    perms = [...document.querySelectorAll('#permsChecklist input[type=checkbox]:checked')].map(cb => cb.dataset.perm);
+  }
+  const newRole = isAdmin ? 'Admin' : 'Worker';
+  DB.team[_permsTargetIdx].role = newRole;
+  DB.team[_permsTargetIdx].permissions = perms;
+  renderTeam();
+  closeModal('permsModal');
+  try {
+    await sbPatch('team_members', 'id=eq.' + m._id, { role: newRole, permissions: perms });
+    showToast('Permissions saved');
+  } catch(e) { showToast('Save failed'); }
+}
+
+function openDefaultPermsModal() {
+  document.getElementById('teamHeaderDropdown').style.display = 'none';
+  buildPermsChecklist('defaultPermsChecklist', DB.defaultWorkerPerms || DEFAULT_WORKER_PERMISSIONS, false);
+  openModal('defaultPermsModal');
+}
+
+async function saveDefaultPerms() {
+  const perms = [...document.querySelectorAll('#defaultPermsChecklist input[type=checkbox]:checked')].map(cb => cb.dataset.perm);
+  DB.defaultWorkerPerms = perms;
+  closeModal('defaultPermsModal');
+  try {
+    await sbPatch('companies', 'id=eq.' + COMPANY_ID, { default_worker_perms: perms });
+    showToast('Default permissions saved');
+  } catch(e) { showToast('Save failed'); }
+}
+
+function toggleTeamHeaderMenu() {
+  const dd = document.getElementById('teamHeaderDropdown');
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    setTimeout(() => document.addEventListener('click', function h() {
+      dd.style.display = 'none'; document.removeEventListener('click', h);
+    }), 0);
+  }
 }
 
 // ══ ALERTS ══
