@@ -680,7 +680,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <div style="display:flex;align-items:center;gap:0.6em;margin-bottom:0.75em;flex-wrap:wrap">
             <input id="teamLinkInput" type="text" readonly onclick="this.select()" style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:0.4em;padding:0.45em 0.75em;font-size:0.78rem;color:var(--text2);font-family:monospace;outline:none;cursor:pointer"/>
             <button class="tb-btn primary" id="copyLinkBtn" onclick="copyInviteLink()" style="font-size:0.78rem;padding:0.4em 0.9em;white-space:nowrap">Copy Link</button>
-            <button class="tb-btn" onclick="regenerateCode()" style="font-size:0.78rem;padding:0.4em 0.7em;color:var(--muted)" title="Reset invite link">↺ Reset</button>
+            <button class="tb-btn" onclick="regenerateCode()" style="font-size:0.78rem;padding:0.4em 0.7em;color:var(--muted)" title="Reset invite link">↺ Reset Link</button>
           </div>
           <div style="font-size:0.75rem;color:var(--muted)">Send this link to anyone you want to join your team. They tap it, create a password, and they're in.</div>
           <div id="teamCodeDisplay" style="display:none"></div>
@@ -1592,7 +1592,7 @@ function copyInviteLink() {
   });
 }
 function regenerateCode() {
-  showConfirm('The old code will stop working immediately.', () => { DB.teamCode = genCode(); sbSaveCompany().catch(console.error); renderTeam(); }, 'Regenerate Code?', 'Regenerate');
+  showConfirm('The old invite link will stop working immediately. Anyone you\'ve already sent it to will need the new link.', () => { DB.teamCode = genCode(); sbSaveCompany().catch(console.error); renderTeam(); }, 'Reset Invite Link?', 'Reset Link');
 }
 function renderTeam() {
   const grid  = document.getElementById('teamGrid');
