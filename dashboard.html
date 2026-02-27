@@ -1893,14 +1893,16 @@ function renderTeam() {
   // Show/hide team header ... button based on admin status
   const teamDotBtn = document.getElementById('teamDotBtn');
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
-  // Only add ownerEntry for the actual company admin — workers already have a team_members row
   const currentUid = getSession()?.user?.id;
-  const ownerEntry = isPrimaryAdmin ? {
+  // ownerEntry is always shown — workers need to see the admin too
+  // But for workers, their own entry already exists in DB.team, so exclude DB.team entries matching currentUid if they are the admin
+  const ownerEntry = {
     _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
-    email: '', role: 'owner', isOwner: true, user_id: currentUid
-  } : null;
-  const baseTeam = ownerEntry ? [ownerEntry, ...DB.team] : [...DB.team];
-  const fullTeam = baseTeam.sort((a, b) => {
+    email: '', role: 'owner', isOwner: true, user_id: isPrimaryAdmin ? currentUid : null
+  };
+  // If current user is a worker, filter out any DB.team row that matches the ownerEntry's name to avoid duplication
+  // (workers are in DB.team; the admin is NOT in DB.team so no dedup needed for admins)
+  const fullTeam = [ownerEntry, ...DB.team].sort((a, b) => {
     const la = (a.lastName || '').trim().toLowerCase();
     const lb = (b.lastName || '').trim().toLowerCase();
     if (!la && !lb) return 0;
@@ -1929,7 +1931,7 @@ function renderTeam() {
       : `<span style="${workerStyle}">Worker</span>`;
 
     const teamIdx = DB.team.indexOf(m);
-    const canManage = isPrimaryAdmin && !isOwner && teamIdx >= 0;
+    const canManage = isPrimaryAdmin && !isYou && teamIdx >= 0;
     const menuBtn = canManage ? `
       <div style="position:relative;flex-shrink:0">
         <button class="tb-btn member-menu-btn" style="padding:0.2em 0.5em;font-size:0.78rem;line-height:1" onclick="event.stopPropagation();toggleMemberMenu(event,${teamIdx})">···</button>
@@ -1943,7 +1945,7 @@ function renderTeam() {
       </div>` : '';
 
     // Determine card click: owner opens profile modal, others open detail modal
-    const cardClick = isOwner ? `openProfileModal()` : `openMemberDetail(${teamIdx})`;
+    const cardClick = isYou ? `openProfileModal()` : `openMemberDetail(${teamIdx})`;
 
     // Build recent purchases snippet (last 3)
     const recentBuys = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).slice(0,3);
