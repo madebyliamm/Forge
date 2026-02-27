@@ -281,6 +281,7 @@ async function submitJoin() {
         email: email || null, role: 'Worker'
       }, token);
       localStorage.setItem('forge_session', JSON.stringify(auth));
+      localStorage.setItem('forge_company_id', company.id);
     }
     document.getElementById('successTitle').textContent = 'Welcome, ' + first + '!';
     document.getElementById('successSub').textContent   = 'You\'ve joined ' + company.name + '. You can now log purchases and track job budgets with your crew.';
