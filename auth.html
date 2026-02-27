@@ -13,7 +13,12 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 (function() {
   try {
     const s = localStorage.getItem('forge_session');
-    if (s && JSON.parse(s)?.access_token) window.location.replace('dashboard.html');
+    if (s) {
+      const parsed = JSON.parse(s);
+      const hasToken = parsed?.access_token;
+      const notExpired = !parsed?.expires_at || (parsed.expires_at * 1000) > Date.now();
+      if (hasToken && notExpired) window.location.replace('dashboard.html');
+    }
   } catch(e) {}
   if (window.location.hash === '#create') {
     window.addEventListener('DOMContentLoaded', () => showFlow('create-s1'));
