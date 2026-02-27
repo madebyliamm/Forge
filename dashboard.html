@@ -188,14 +188,17 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .proj-card-burn { font-size: 0.72rem; color: var(--muted); margin-top: 0.5em; padding-top: 0.5em; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
 
 /* TEAM */
-.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1em; }
-.member-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.65em; padding: 1.2em; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5em; }
-.member-avatar { width: 2.8em; height: 2.8em; border-radius: 50%; display: grid; place-items: center; font-size: 1rem; font-weight: 700; flex-shrink: 0; }
-.member-name { font-size: 0.9rem; font-weight: 700; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1em; }
+.member-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.8em; padding: 1.4em; display: flex; flex-direction: column; gap: 0; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; position: relative; }
+.member-card:hover { border-color: var(--border2); box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+.member-card .member-menu-btn { opacity: 0; transition: opacity 0.15s; }
+.member-card:hover .member-menu-btn { opacity: 1; }
+.member-avatar { width: 3.2em; height: 3.2em; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem; font-weight: 700; flex-shrink: 0; overflow: hidden; }
+.member-name { font-size: 0.95rem; font-weight: 700; }
 .member-role { font-size: 0.75rem; color: var(--text2); }
 .member-stats { display: flex; gap: 0.75em; margin-top: 0.3em; }
 .member-stat { text-align: center; }
-.member-stat-val { font-size: 0.85rem; font-weight: 700; }
+.member-stat-val { font-size: 0.88rem; font-weight: 700; }
 .member-stat-lbl { font-size: 0.65rem; color: var(--muted); }
 
 /* ALERTS */
@@ -561,10 +564,10 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
     <!-- FIXED BOTTOM -->
     <div class="sidebar-bottom" style="flex-shrink:0">
-      <div class="user-row">
-        <div class="user-avatar" id="userAvatar">?</div>
+      <div class="user-row" onclick="openProfileModal()" title="Edit profile">
+        <div class="user-avatar" id="userAvatar" style="overflow:hidden">?</div>
         <div style="flex:1;min-width:0"><div class="user-name" id="userName">...</div><div class="user-company" id="userRole">Admin</div></div>
-        <button style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2em;transition:color 0.12s" title="Sign out" onclick="signOut()" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+        <button style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2em;transition:color 0.12s" title="Sign out" onclick="event.stopPropagation();signOut()" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M12 7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
@@ -838,6 +841,134 @@ tr:hover td { background: rgba(255,255,255,0.015); }
     </div>
   </div>
 </div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-bg" id="profileModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <div class="modal-title">Your Profile</div>
+      <button class="modal-close" onclick="closeModal('profileModal')">✕</button>
+    </div>
+    <div style="padding:0 0.25em 0.5em">
+      <!-- Avatar preview -->
+      <div style="display:flex;align-items:center;gap:1.25em;margin-bottom:1.5em;padding:1.2em;background:var(--surface2);border-radius:0.65em;border:1px solid var(--border)">
+        <div id="profileAvatarPreview" style="width:4em;height:4em;border-radius:50%;display:grid;place-items:center;font-size:1.4rem;font-weight:700;flex-shrink:0;overflow:hidden;transition:all 0.2s"></div>
+        <div>
+          <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5em">Avatar</div>
+          <div style="display:flex;gap:0.5em;flex-wrap:wrap">
+            <button onclick="setAvatarMode('initials')" id="avatarModeInitials" class="tb-btn" style="font-size:0.75rem;padding:0.3em 0.65em">Initials</button>
+            <button onclick="setAvatarMode('color')" id="avatarModeColor" class="tb-btn" style="font-size:0.75rem;padding:0.3em 0.65em">Color</button>
+            <button onclick="setAvatarMode('image')" id="avatarModeImage" class="tb-btn" style="font-size:0.75rem;padding:0.3em 0.65em">Photo</button>
+          </div>
+        </div>
+      </div>
+      <!-- Color picker row (shown in color/initials mode) -->
+      <div id="avatarColorRow" style="margin-bottom:1.2em">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text2);margin-bottom:0.5em">Background color</div>
+        <div style="display:flex;gap:0.5em;flex-wrap:wrap">
+          <div onclick="selectAvatarColor('#1a6de8')" style="width:1.8em;height:1.8em;border-radius:50%;background:#1a6de8;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#0da068')" style="width:1.8em;height:1.8em;border-radius:50%;background:#0da068;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#8b5cf6')" style="width:1.8em;height:1.8em;border-radius:50%;background:#8b5cf6;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#e84040')" style="width:1.8em;height:1.8em;border-radius:50%;background:#e84040;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#d99520')" style="width:1.8em;height:1.8em;border-radius:50%;background:#d99520;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#ec4899')" style="width:1.8em;height:1.8em;border-radius:50%;background:#ec4899;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <div onclick="selectAvatarColor('#06b6d4')" style="width:1.8em;height:1.8em;border-radius:50%;background:#06b6d4;cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" class="avatar-color-swatch"></div>
+          <label style="width:1.8em;height:1.8em;border-radius:50%;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);cursor:pointer;border:2px solid transparent;display:grid;place-items:center;overflow:hidden;flex-shrink:0" title="Custom color">
+            <input type="color" id="avatarCustomColor" style="opacity:0;width:0;height:0;position:absolute" oninput="selectAvatarColor(this.value)">
+          </label>
+        </div>
+      </div>
+      <!-- Image upload row (shown in image mode) -->
+      <div id="avatarImageRow" style="margin-bottom:1.2em;display:none">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text2);margin-bottom:0.5em">Profile photo</div>
+        <label style="display:flex;align-items:center;gap:0.75em;padding:0.75em 1em;border:1px dashed var(--border2);border-radius:0.5em;cursor:pointer;transition:border-color 0.15s" onmouseenter="this.style.borderColor='var(--blue-l)'" onmouseleave="this.style.borderColor='var(--border2)'">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="var(--blue-l)" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span style="font-size:0.82rem;color:var(--text2)">Upload photo (JPG, PNG)</span>
+          <input type="file" id="avatarImageUpload" accept="image/*" style="display:none" onchange="previewAvatarImage(this)">
+        </label>
+      </div>
+      <!-- Name fields -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85em;margin-bottom:1em">
+        <div class="field" style="margin:0">
+          <label>First name</label>
+          <input type="text" id="profileFirstName" placeholder="John"/>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Last name</label>
+          <input type="text" id="profileLastName" placeholder="Smith"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="text" id="profileEmail" placeholder="you@company.com" disabled style="opacity:0.5;cursor:not-allowed"/>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:0.3em">Email cannot be changed here</div>
+      </div>
+      <div class="field">
+        <label>Job title</label>
+        <input type="text" id="profileJobTitle" placeholder="Site Foreman, Project Manager…"/>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="profilePhone" placeholder="(555) 000-0000"/>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('profileModal')">Cancel</button>
+      <button class="btn-save" id="profileSaveBtn" onclick="saveProfile()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMBER DETAIL MODAL -->
+<div class="modal-bg" id="memberDetailModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div class="modal-title">Team Member</div>
+      <button class="modal-close" onclick="closeModal('memberDetailModal')">✕</button>
+    </div>
+    <div style="padding:0 0.25em 0.5em">
+      <!-- Header with avatar -->
+      <div style="display:flex;align-items:center;gap:1.2em;padding:1.2em;background:var(--surface2);border-radius:0.65em;border:1px solid var(--border);margin-bottom:1.25em">
+        <div id="mdAvatar" style="width:3.5em;height:3.5em;border-radius:50%;display:grid;place-items:center;font-size:1.25rem;font-weight:700;flex-shrink:0;overflow:hidden"></div>
+        <div>
+          <div id="mdName" style="font-size:1rem;font-weight:700;margin-bottom:0.25em"></div>
+          <div id="mdRoleTag"></div>
+        </div>
+      </div>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75em;margin-bottom:1.25em">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.55em;padding:0.85em;text-align:center">
+          <div id="mdSpent" style="font-size:1.1rem;font-weight:700"></div>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.2em">spent</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.55em;padding:0.85em;text-align:center">
+          <div id="mdPurchases" style="font-size:1.1rem;font-weight:700"></div>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.2em">purchases</div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.55em;padding:0.85em;text-align:center">
+          <div id="mdProjects" style="font-size:1.1rem;font-weight:700"></div>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.2em">projects</div>
+        </div>
+      </div>
+      <!-- Details -->
+      <div style="display:flex;flex-direction:column;gap:0.6em">
+        <div id="mdEmailRow" style="display:flex;align-items:center;gap:0.75em;padding:0.75em;background:var(--surface2);border-radius:0.5em">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:var(--muted)"><rect x="1" y="3" width="12" height="8" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M1 4l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span id="mdEmail" style="font-size:0.85rem;color:var(--text2)"></span>
+        </div>
+        <div id="mdJoinedRow" style="display:flex;align-items:center;gap:0.75em;padding:0.75em;background:var(--surface2);border-radius:0.5em">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:var(--muted)"><rect x="1" y="2" width="12" height="11" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M1 6h12M4 1v2M10 1v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span id="mdJoined" style="font-size:0.85rem;color:var(--text2)"></span>
+        </div>
+      </div>
+      <!-- Recent purchases -->
+      <div id="mdPurchasesList" style="margin-top:1.25em"></div>
+    </div>
+    <div class="modal-foot" id="mdFooter">
+      <button class="btn-cancel" onclick="closeModal('memberDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -1048,6 +1179,10 @@ async function loadFromSupabase() {
       workerCount: co.worker_count || 0,
       logoUrl:     co.logo_url || null,
       firstName:   meta.first_name || '',
+      jobTitle:    meta.job_title    || '',
+      phone:       meta.phone        || '',
+      avatarColor: meta.avatar_color  || '#1a6de8',
+      avatarImage: meta.avatar_image  || null,
       lastName:    meta.last_name  || '',
       role:        isWorker ? 'worker' : 'admin',
       projects: projects.map(p => ({
@@ -1182,7 +1317,20 @@ async function init() {
   document.body.style.transition = 'opacity 0.3s ease';
   document.body.style.opacity = '1';
   const initials = ((DB.firstName||'?')[0]+(DB.lastName||'?')[0]).toUpperCase();
-  document.getElementById('userAvatar').textContent     = initials;
+  const avatarEl = document.getElementById('userAvatar');
+  // Load saved avatar preferences from user metadata
+  const meta = getSession()?.user?.user_metadata || {};
+  DB.avatarColor = meta.avatar_color || '#1a6de8';
+  DB.avatarImage = meta.avatar_image || null;
+  DB.jobTitle    = meta.job_title    || '';
+  DB.phone       = meta.phone        || '';
+  if (DB.avatarImage) {
+    avatarEl.innerHTML = `<img src="${DB.avatarImage}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    avatarEl.style.background = 'none';
+  } else {
+    avatarEl.textContent = initials;
+    avatarEl.style.background = DB.avatarColor || '#1a6de8';
+  }
   document.getElementById('userName').textContent       = (DB.firstName||'' +' '+ DB.lastName||'').trim() || DB.companyName || 'Admin';
   document.getElementById('userRole').textContent       = DB.role ? DB.role.charAt(0).toUpperCase()+DB.role.slice(1) : 'Admin';
   document.getElementById('sidebarCompany').textContent = DB.companyName || '—';
@@ -1573,18 +1721,12 @@ function renderTeam() {
   const linkInput = document.getElementById('teamLinkInput');
   if (linkInput) linkInput.value = getInviteLink();
 
-  // Build full roster: owner first, then team_members
   const isPrimaryAdmin = DB.role === 'admin';
   const ownerEntry = {
-    _id: null,
-    firstName: DB.firstName || 'Admin',
-    lastName:  DB.lastName  || '',
-    email:     '',
-    role:      'owner',
-    isOwner:   true
+    _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
+    email: '', role: 'owner', isOwner: true
   };
   const fullTeam = [ownerEntry, ...DB.team];
-
   document.getElementById('teamSub').textContent = fullTeam.length+' member'+(fullTeam.length!==1?'s':'')+' · '+(DB.plan||'')+' plan';
   empty.style.display = 'none';
 
@@ -1593,43 +1735,66 @@ function renderTeam() {
     const col     = AVATAR_COLORS[i % AVATAR_COLORS.length];
     const spend   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).reduce((s,p)=>s+p.amount,0);
     const count   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).length;
+    const projSet = new Set(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).map(p=>p.projectIdx));
     const role    = (m.role||'worker').toLowerCase();
     const isOwner = !!m.isOwner;
 
     const roleTag = isOwner
-      ? `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Owner</span>`
+      ? `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Owner</span>`
       : role === 'admin'
-        ? `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>`
-        : `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)">Worker</span>`;
+        ? `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>`
+        : `<span style="display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)">Worker</span>`;
 
     const teamIdx = DB.team.indexOf(m);
     const canManage = isPrimaryAdmin && !isOwner && teamIdx >= 0;
-    const menu = canManage ? `
+    const menuBtn = canManage ? `
       <div style="position:relative;flex-shrink:0">
-        <button class="tb-btn" style="padding:0.25em 0.55em;font-size:0.78rem;line-height:1" onclick="toggleMemberMenu(event,${teamIdx})">···</button>
-        <div class="member-menu" id="mmenu-${teamIdx}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:140px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
-          <button onclick="promoteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">${role==='admin'?'Demote to Worker':'Promote to Admin'}</button>
-          <button onclick="deleteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">Remove</button>
+        <button class="tb-btn member-menu-btn" style="padding:0.2em 0.5em;font-size:0.78rem;line-height:1" onclick="event.stopPropagation();toggleMemberMenu(event,${teamIdx})">···</button>
+        <div class="member-menu" id="mmenu-${teamIdx}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:145px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
+          <button onclick="event.stopPropagation();promoteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">${role==='admin'?'Demote to Worker':'Promote to Admin'}</button>
+          <button onclick="event.stopPropagation();deleteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.65em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">Remove Member</button>
         </div>
       </div>` : '';
 
-    return `<div class="member-card" style="align-items:stretch;text-align:left">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em;margin-bottom:0.9em">
-        <div style="display:flex;align-items:center;gap:0.75em;min-width:0;flex:1;overflow:hidden">
+    // Determine card click: owner opens profile modal, others open detail modal
+    const cardClick = isOwner ? `openProfileModal()` : `openMemberDetail(${teamIdx})`;
+
+    // Build recent purchases snippet (last 3)
+    const recentBuys = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).slice(0,3);
+    const recentHtml = recentBuys.length ? recentBuys.map(p=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.45em 0;border-top:1px solid var(--border)">
+        <span style="font-size:0.78rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${p.vendor||'Unknown'}</span>
+        <span style="font-size:0.78rem;font-weight:600;flex-shrink:0">$${fmt(p.amount)}</span>
+      </div>`).join('') : '';
+
+    return `<div class="member-card" onclick="${cardClick}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em;margin-bottom:1em">
+        <div style="display:flex;align-items:center;gap:0.9em;min-width:0;flex:1;overflow:hidden">
           <div class="member-avatar" style="background:${col};flex-shrink:0">${init}</div>
           <div style="min-width:0;overflow:hidden">
             <div class="member-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.firstName} ${m.lastName}</div>
-            <div style="font-size:0.72rem;color:var(--muted);margin-top:0.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.email||'—'}</div>
+            <div style="font-size:0.73rem;color:var(--muted);margin-top:0.15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.email||'—'}</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:0.4em;flex-shrink:0">
-          ${roleTag}${menu}
+        <div style="display:flex;align-items:center;gap:0.35em;flex-shrink:0">
+          ${roleTag}${menuBtn}
         </div>
       </div>
-      <div style="display:flex;gap:1.5em;padding-top:0.75em;border-top:1px solid var(--border)">
-        <div><div class="member-stat-val">$${fmt(spend)}</div><div class="member-stat-lbl">spent</div></div>
-        <div><div class="member-stat-val">${count}</div><div class="member-stat-lbl">purchases</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5em;padding:0.85em 0;border-top:1px solid var(--border);border-bottom:${recentHtml?'1px solid var(--border)':'none'};margin-bottom:${recentHtml?'0.6em':'0'}">
+        <div style="text-align:center">
+          <div class="member-stat-val">$${fmtShort(spend)}</div>
+          <div class="member-stat-lbl">spent</div>
+        </div>
+        <div style="text-align:center;border-left:1px solid var(--border)">
+          <div class="member-stat-val">${count}</div>
+          <div class="member-stat-lbl">purchases</div>
+        </div>
+        <div style="text-align:center;border-left:1px solid var(--border)">
+          <div class="member-stat-val">${projSet.size}</div>
+          <div class="member-stat-lbl">projects</div>
+        </div>
       </div>
+      ${recentHtml ? `<div style="padding:0.1em 0">${recentHtml}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -2173,6 +2338,176 @@ function deleteCurrentProject() {
 }
 
 // ══ SIGN OUT ══
+// ══ PROFILE MODAL ══
+let _profileAvatarMode = 'initials';
+let _profileAvatarColor = '';
+let _profileAvatarImageData = null;
+
+function openProfileModal() {
+  const session = getSession();
+  _profileAvatarColor = DB.avatarColor || '#1a6de8';
+  _profileAvatarImageData = DB.avatarImage || null;
+  _profileAvatarMode = _profileAvatarImageData ? 'image' : 'initials';
+
+  document.getElementById('profileFirstName').value = DB.firstName || '';
+  document.getElementById('profileLastName').value  = DB.lastName  || '';
+  document.getElementById('profileEmail').value     = session?.user?.email || '';
+  document.getElementById('profileJobTitle').value  = DB.jobTitle  || '';
+  document.getElementById('profilePhone').value     = DB.phone     || '';
+
+  setAvatarMode(_profileAvatarMode);
+  updateProfileAvatarPreview();
+  openModal('profileModal');
+}
+
+function setAvatarMode(mode) {
+  _profileAvatarMode = mode;
+  const colorRow = document.getElementById('avatarColorRow');
+  const imageRow = document.getElementById('avatarImageRow');
+  colorRow.style.display = (mode === 'image') ? 'none' : 'block';
+  imageRow.style.display = (mode === 'image') ? 'block' : 'none';
+  ['Initials','Color','Image'].forEach(m => {
+    const btn = document.getElementById('avatarMode'+m);
+    if (btn) btn.style.background = (mode === m.toLowerCase()) ? 'var(--blue)' : '';
+    if (btn) btn.style.color      = (mode === m.toLowerCase()) ? '#fff' : '';
+    if (btn) btn.style.borderColor= (mode === m.toLowerCase()) ? 'var(--blue)' : '';
+  });
+  updateProfileAvatarPreview();
+}
+
+function selectAvatarColor(color) {
+  _profileAvatarColor = color;
+  document.querySelectorAll('.avatar-color-swatch').forEach(s => {
+    s.style.borderColor = (s.style.background === color || s.style.backgroundColor === color) ? '#fff' : 'transparent';
+  });
+  updateProfileAvatarPreview();
+}
+
+function previewAvatarImage(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _profileAvatarImageData = e.target.result;
+    updateProfileAvatarPreview();
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function updateProfileAvatarPreview() {
+  const el = document.getElementById('profileAvatarPreview');
+  if (!el) return;
+  const first = document.getElementById('profileFirstName')?.value || DB.firstName || '?';
+  const last  = document.getElementById('profileLastName')?.value  || DB.lastName  || '?';
+  const init  = (first[0] + last[0]).toUpperCase();
+
+  if (_profileAvatarMode === 'image' && _profileAvatarImageData) {
+    el.innerHTML = `<img src="${_profileAvatarImageData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    el.style.background = 'none';
+  } else if (_profileAvatarMode === 'color') {
+    el.innerHTML = '';
+    el.style.background = _profileAvatarColor || '#1a6de8';
+  } else {
+    el.textContent = init;
+    el.style.background = _profileAvatarColor || '#1a6de8';
+  }
+}
+
+async function saveProfile() {
+  const btn   = document.getElementById('profileSaveBtn');
+  const first = document.getElementById('profileFirstName').value.trim();
+  const last  = document.getElementById('profileLastName').value.trim();
+  const title = document.getElementById('profileJobTitle').value.trim();
+  const phone = document.getElementById('profilePhone').value.trim();
+  if (!first) { showToast('First name is required'); return; }
+
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    DB.firstName    = first;
+    DB.lastName     = last;
+    DB.jobTitle     = title;
+    DB.phone        = phone;
+    DB.avatarColor  = _profileAvatarColor;
+    DB.avatarImage  = (_profileAvatarMode === 'image' ? _profileAvatarImageData : null);
+
+    // Persist to Supabase user metadata
+    const session = getSession();
+    if (session?.access_token) {
+      await fetch(SB_URL + '/auth/v1/user', {
+        method: 'PUT',
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { first_name: first, last_name: last, job_title: title, phone, avatar_color: _profileAvatarColor, avatar_image: DB.avatarImage } })
+      });
+    }
+
+    // Update sidebar
+    const initials = (first[0] + (last[0]||'')).toUpperCase();
+    const avatarEl = document.getElementById('userAvatar');
+    if (DB.avatarImage) {
+      avatarEl.innerHTML = `<img src="${DB.avatarImage}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+      avatarEl.style.background = 'none';
+    } else {
+      avatarEl.textContent = initials;
+      avatarEl.style.background = DB.avatarColor || '#1a6de8';
+    }
+    document.getElementById('userName').textContent = (first + ' ' + last).trim();
+    renderTeam();
+    closeModal('profileModal');
+  } catch(e) {
+    showToast('Save failed — ' + e.message);
+  } finally {
+    btn.textContent = 'Save Changes'; btn.disabled = false;
+  }
+}
+
+// ══ MEMBER DETAIL MODAL ══
+function openMemberDetail(teamIdx) {
+  const m = DB.team[teamIdx];
+  if (!m) return;
+  const col   = AVATAR_COLORS[teamIdx % AVATAR_COLORS.length];
+  const init  = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
+  const spend = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).reduce((s,p)=>s+p.amount,0);
+  const buys  = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName));
+  const projSet = new Set(buys.map(p=>p.projectIdx));
+  const role  = (m.role||'worker').toLowerCase();
+
+  const avatarEl = document.getElementById('mdAvatar');
+  avatarEl.textContent = init;
+  avatarEl.style.background = col;
+
+  document.getElementById('mdName').textContent = m.firstName + ' ' + m.lastName;
+  document.getElementById('mdRoleTag').innerHTML = role === 'admin'
+    ? `<span style="padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>`
+    : `<span style="padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)">Worker</span>`;
+
+  document.getElementById('mdSpent').textContent     = '$' + fmt(spend);
+  document.getElementById('mdPurchases').textContent = buys.length;
+  document.getElementById('mdProjects').textContent  = projSet.size;
+  document.getElementById('mdEmail').textContent     = m.email || '—';
+  document.getElementById('mdJoined').textContent    = m.joined_at ? 'Joined ' + fmtDate(new Date(m.joined_at).toISOString().split('T')[0]) : 'Member';
+
+  // Recent purchases
+  const recent = buys.slice(0,5);
+  document.getElementById('mdPurchasesList').innerHTML = recent.length
+    ? `<div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.5em">Recent Purchases</div>` +
+      recent.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5em 0;border-top:1px solid var(--border)">
+        <div><div style="font-size:0.83rem;font-weight:500">${p.vendor||'Unknown'}</div><div style="font-size:0.72rem;color:var(--muted)">${p.category||''} · ${fmtDate(p.date)}</div></div>
+        <span style="font-size:0.88rem;font-weight:700;flex-shrink:0;margin-left:0.75em">$${fmt(p.amount)}</span>
+      </div>`).join('')
+    : `<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:1em 0">No purchases yet</div>`;
+
+  // Footer — admin can manage
+  const isPrimaryAdmin = DB.role === 'admin';
+  document.getElementById('mdFooter').innerHTML = isPrimaryAdmin
+    ? `<button class="btn-cancel" style="color:var(--red);border-color:rgba(232,64,64,0.3)" onclick="event.stopPropagation();closeModal('memberDetailModal');deleteMember(${teamIdx})">Remove</button>
+       <div style="display:flex;gap:0.5em">
+         <button class="btn-cancel" onclick="closeModal('memberDetailModal')">Close</button>
+         <button class="btn-save" onclick="closeModal('memberDetailModal');promoteMember(${teamIdx})">${role==='admin'?'Demote to Worker':'Promote to Admin'}</button>
+       </div>`
+    : `<button class="btn-cancel" onclick="closeModal('memberDetailModal')">Close</button>`;
+
+  openModal('memberDetailModal');
+}
+
 function signOut() {
   showConfirm('You will be returned to the sign-in screen.', () => {
     setSession(null);
