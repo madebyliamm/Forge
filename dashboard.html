@@ -1158,6 +1158,11 @@ async function save(d) {
 
 async function sbSaveProject(proj, localIdx) {
   if (!COMPANY_ID) return;
+  // Store categories as [{name, pct}] so budget allocations persist
+  const categoriesPayload = (proj.categories || []).map(name => ({
+    name,
+    pct: (proj.catBudgets && proj.catBudgets[name]) ? proj.catBudgets[name] : null
+  }));
   const payload = {
     company_id: COMPANY_ID,
     name: proj.name,
@@ -1166,7 +1171,7 @@ async function sbSaveProject(proj, localIdx) {
     budget: proj.budget || 0,
     start_date: proj.startDate || null,
     color: proj.color || '#3b82f6',
-    categories: proj.categories || [],
+    categories: categoriesPayload,
     sort_order: localIdx
   };
   if (proj._id) {
@@ -1302,7 +1307,13 @@ async function loadFromSupabase() {
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
         startDate: p.start_date, color: p.color,
-        categories: p.categories || [], catBudgets: {}
+        // categories stored as [{name, pct}] — rebuild flat arrays for app use
+        categories: (p.categories || []).map(c => typeof c === 'object' ? c.name : c),
+        catBudgets: Object.fromEntries(
+          (p.categories || [])
+            .filter(c => typeof c === 'object' && c.pct)
+            .map(c => [c.name, c.pct])
+        )
       })),
       purchases: purchases.map(pu => {
         const projectIdx = projects.findIndex(p => p.id === pu.project_id);
@@ -2295,7 +2306,8 @@ function saveNewProject() {
   closeModal('newProjModal');
   resetProjectModal();
   renderAll();
-  sbSaveProject(proj, idx).catch(console.error);
+  // Await so _id is set before any purchase saves reference this project
+  sbSaveProject(proj, idx).catch(e => { console.error('Project save failed:', e); showToast('Failed to save project'); });
 }
 
 // ══ QUICK ADD PURCHASE (from project detail) ══
