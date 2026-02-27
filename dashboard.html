@@ -1170,6 +1170,7 @@ async function sbSaveProject(proj, localIdx) {
     location: proj.location || null,
     budget: proj.budget || 0,
     start_date: proj.startDate || null,
+    end_date: proj.endDate || null,
     color: proj.color || '#3b82f6',
     categories: categoriesPayload,
     sort_order: localIdx
@@ -1306,7 +1307,7 @@ async function loadFromSupabase() {
       projects: projects.map(p => ({
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
-        startDate: p.start_date, color: p.color,
+        startDate: p.start_date, endDate: p.end_date || null, color: p.color,
         // categories stored as [{name, pct}] — rebuild flat arrays for app use
         categories: (p.categories || []).map(c => typeof c === 'object' ? c.name : c),
         catBudgets: Object.fromEntries(
