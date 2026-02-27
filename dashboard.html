@@ -1012,14 +1012,19 @@ async function loadFromSupabase() {
     const adminCompanies = await sbGet('companies', 'owner_id=eq.' + uid + '&select=*&limit=1');
     if (adminCompanies.length) {
       co = adminCompanies[0];
-    } else if (meta.company_id) {
-      const workerCompanies = await sbGet('companies', 'id=eq.' + meta.company_id + '&select=*&limit=1');
-      if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
+    } else {
+      // Worker — get company_id from localStorage (set at join time)
+      const workerCompanyId = localStorage.getItem('forge_company_id') || meta.company_id;
+      if (workerCompanyId) {
+        const workerCompanies = await sbGet('companies', 'id=eq.' + workerCompanyId + '&select=*&limit=1');
+        if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
+      }
     }
 
-    // No company found at all — sign them out cleanly, don't loop
+    // No company found — sign out cleanly, don't loop
     if (!co) {
       setSession(null);
+      localStorage.removeItem('forge_company_id');
       window.location.replace('auth.html');
       return false;
     }
@@ -2148,6 +2153,7 @@ function signOut() {
   showConfirm('You will be returned to the sign-in screen.', () => {
     setSession(null);
     localStorage.removeItem('forge_cache');
+    localStorage.removeItem('forge_company_id');
     window.location.href = 'auth.html';
   }, 'Sign Out?', 'Sign Out');
 }
