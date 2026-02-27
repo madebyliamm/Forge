@@ -1074,6 +1074,14 @@ async function loadFromSupabase() {
 
   } catch(err) {
     console.error('loadFromSupabase error:', err);
+    // If it's an auth error (401, expired JWT, etc.), clear session to prevent
+    // the auth.html <-> dashboard.html redirect loop
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('jwt') || msg.includes('expired') || msg.includes('invalid') ||
+        msg.includes('401') || msg.includes('unauthorized') || msg.includes('not authenticated')) {
+      setSession(null);
+      localStorage.removeItem('forge_company_id');
+    }
     return false;
   }
 }
