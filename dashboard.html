@@ -23,7 +23,7 @@
   --green:     #0da068;
   --orange:    #d99520;
   --red:       #e84040;
-  --sidebar-w: 220px;
+  --sidebar-w: 260px;
 }
 html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
@@ -31,31 +31,31 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 
 /* SIDEBAR */
 .sidebar { width: var(--sidebar-w); flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
-.sidebar-logo { padding: 1.1em 1.2em; display: flex; align-items: center; gap: 0.55em; border-bottom: 1px solid var(--border); flex-shrink: 0; text-decoration: none; color: var(--text); }
+.sidebar-logo { padding: 1.2em 1.3em; display: flex; align-items: center; gap: 0.55em; border-bottom: 1px solid var(--border); flex-shrink: 0; text-decoration: none; color: var(--text); }
 .logo-mark { width: 1.75rem; height: 1.75rem; background: var(--blue); border-radius: 0.4em; display: grid; place-items: center; flex-shrink: 0; }
 .logo-name { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.02em; }
 .logo-name .tld { color: var(--blue-l); }
-.sidebar-section { padding: 0.6em 0.75em 0.3em; }
-.sidebar-label { font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 0 0.5em; margin-bottom: 0.3em; }
-.nav-item { display: flex; align-items: center; gap: 0.55em; padding: 0.38em 0.6em; border-radius: 0.4em; font-size: 0.85rem; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.12s; user-select: none; margin-bottom: 0.1em; }
+.sidebar-section { padding: 0.7em 0.85em 0.4em; }
+.sidebar-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); padding: 0 0.5em; margin-bottom: 0.3em; }
+.nav-item { display: flex; align-items: center; gap: 0.65em; padding: 0.52em 0.75em; border-radius: 0.45em; font-size: 0.95rem; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.12s; user-select: none; margin-bottom: 0.1em; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: rgba(26,109,232,0.12); color: var(--blue-l); }
-.nav-item svg { flex-shrink: 0; opacity: 0.7; }
+.nav-item svg { flex-shrink: 0; opacity: 0.7; width: 17px; height: 17px; }
 .nav-item.active svg { opacity: 1; }
 .sidebar-projects { flex: 1; padding: 0; overflow-y: auto; min-height: 0; }
-.proj-item { display: flex; align-items: center; gap: 0.5em; padding: 0.32em 0.6em; border-radius: 0.4em; font-size: 0.82rem; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.12s; margin-bottom: 0.08em; }
+.proj-item { display: flex; align-items: center; gap: 0.6em; padding: 0.45em 0.75em; border-radius: 0.4em; font-size: 0.9rem; font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.12s; margin-bottom: 0.08em; }
 .proj-item:hover { background: var(--surface2); color: var(--text); }
 .proj-item.active { background: var(--surface2); color: var(--text); }
-.proj-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.proj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .proj-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btn-new-proj { margin: 0.5em 0 0.5em; display: flex; align-items: center; gap: 0.4em; justify-content: center; padding: 0.5em; border-radius: 0.4em; border: 1px dashed var(--border2); background: none; color: var(--muted); font-size: 0.8rem; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.12s; }
 .btn-new-proj:hover { border-color: var(--blue-l); color: var(--blue-l); background: rgba(26,109,232,0.05); }
 .sidebar-bottom { padding: 0.75em; border-top: 1px solid var(--border); flex-shrink: 0; }
-.user-row { display: flex; align-items: center; gap: 0.6em; padding: 0.4em 0.5em; border-radius: 0.4em; cursor: pointer; }
+.user-row { display: flex; align-items: center; gap: 0.7em; padding: 0.5em 0.6em; border-radius: 0.4em; cursor: pointer; }
 .user-row:hover { background: var(--surface2); }
-.user-avatar { width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--blue); display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
-.user-name { font-size: 0.82rem; font-weight: 600; }
-.user-company { font-size: 0.72rem; color: var(--muted); }
+.user-avatar { width: 2.2em; height: 2.2em; border-radius: 50%; background: var(--blue); display: grid; place-items: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
+.user-name { font-size: 0.93rem; font-weight: 600; }
+.user-company { font-size: 0.8rem; color: var(--muted); }
 
 /* MAIN */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -78,9 +78,9 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.3em; opacity: 0.5; }
 .empty-title { font-size: 1.2rem; font-weight: 700; }
 /* SIDEBAR COMPANY BLOCK */
-.sidebar-company { padding: 0.6em 1.1em; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.company-name { font-size: 0.88rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.company-plan { font-size: 0.68rem; color: var(--muted); margin-top: 0.1em; text-transform: capitalize; }
+.sidebar-company { padding: 0.75em 1.1em; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.company-name { font-size: 1rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.company-plan { font-size: 0.78rem; color: var(--muted); margin-top: 0.1em; text-transform: capitalize; }
 
 /* ALERTS BADGE */
 .nav-badge { margin-left: auto; min-width: 1.25em; height: 1.25em; border-radius: 0.65em; background: var(--red); color: #fff; font-size: 0.62rem; font-weight: 700; display: grid; place-items: center; padding: 0 0.3em; }
@@ -520,7 +520,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background=''">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em">
         <div style="display:flex;align-items:center;gap:0.6em;min-width:0">
-          <div id="companyLogoDisplay" style="width:28px;height:28px;border-radius:6px;background:var(--blue);display:grid;place-items:center;flex-shrink:0;overflow:hidden;font-size:0.65rem;font-weight:700;color:#fff"></div>
+          <div id="companyLogoDisplay" style="width:36px;height:36px;border-radius:7px;background:var(--blue);display:grid;place-items:center;flex-shrink:0;overflow:hidden;font-size:0.75rem;font-weight:700;color:#fff"></div>
           <div style="min-width:0">
             <div class="company-name" id="sidebarCompany">—</div>
             <div class="company-plan" id="sidebarPlan">—</div>
