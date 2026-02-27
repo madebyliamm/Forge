@@ -1569,48 +1569,66 @@ function regenerateCode() {
 function renderTeam() {
   const grid  = document.getElementById('teamGrid');
   const empty = document.getElementById('teamEmpty');
-  document.getElementById('teamSub').textContent = DB.team.length+' member'+(DB.team.length!==1?'s':'')+' · '+(DB.plan||'')+' plan';
   if (!DB.teamCode) { DB.teamCode = genCode(); sbSaveCompany().catch(console.error); }
   const linkInput = document.getElementById('teamLinkInput');
   if (linkInput) linkInput.value = getInviteLink();
-  if (!DB.team.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
-  empty.style.display='none';
-  // Only primary admin can promote/demote (owner_id matches current user)
+
+  // Build full roster: owner first, then team_members
   const isPrimaryAdmin = DB.role === 'admin';
-  grid.innerHTML = DB.team.map((m,i)=>{
+  const ownerEntry = {
+    _id: null,
+    firstName: DB.firstName || 'Admin',
+    lastName:  DB.lastName  || '',
+    email:     '',
+    role:      'owner',
+    isOwner:   true
+  };
+  const fullTeam = [ownerEntry, ...DB.team];
+
+  document.getElementById('teamSub').textContent = fullTeam.length+' member'+(fullTeam.length!==1?'s':'')+' · '+(DB.plan||'')+' plan';
+  empty.style.display = 'none';
+
+  grid.innerHTML = fullTeam.map((m, i) => {
     const init    = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
-    const col     = AVATAR_COLORS[i%AVATAR_COLORS.length];
+    const col     = AVATAR_COLORS[i % AVATAR_COLORS.length];
     const spend   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).reduce((s,p)=>s+p.amount,0);
     const count   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).length;
-    const isAdmin = (m.role||'').toLowerCase() === 'admin';
-    const roleTag = isAdmin
-      ? '<span class="tag" style="background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>'
-      : '<span class="tag tag-blue">Worker</span>';
-    const menu = isPrimaryAdmin ? `
-      <div class="member-menu-wrap" style="position:relative">
-        <button class="tb-btn" style="padding:0.25em 0.5em;font-size:0.78rem" onclick="toggleMemberMenu(event,${i})">···</button>
-        <div class="member-menu" id="mmenu-${i}" style="display:none;position:absolute;right:0;top:2em;background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:130px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
-          <button onclick="promoteMember(${i})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">${isAdmin?'Demote to Worker':'Promote to Admin'}</button>
-          <button onclick="deleteMember(${i})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">Remove</button>
+    const role    = (m.role||'worker').toLowerCase();
+    const isOwner = !!m.isOwner;
+
+    const roleTag = isOwner
+      ? `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Owner</span>`
+      : role === 'admin'
+        ? `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)">Admin</span>`
+        : `<span style="display:inline-flex;align-items:center;padding:0.18em 0.55em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)">Worker</span>`;
+
+    const teamIdx = DB.team.indexOf(m);
+    const canManage = isPrimaryAdmin && !isOwner && teamIdx >= 0;
+    const menu = canManage ? `
+      <div style="position:relative;flex-shrink:0">
+        <button class="tb-btn" style="padding:0.25em 0.55em;font-size:0.78rem;line-height:1" onclick="toggleMemberMenu(event,${teamIdx})">···</button>
+        <div class="member-menu" id="mmenu-${teamIdx}" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border2);border-radius:0.5em;min-width:140px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);overflow:hidden">
+          <button onclick="promoteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--text);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">${role==='admin'?'Demote to Worker':'Promote to Admin'}</button>
+          <button onclick="deleteMember(${teamIdx})" style="display:block;width:100%;text-align:left;padding:0.6em 0.9em;background:none;border:none;cursor:pointer;font-size:0.82rem;color:var(--red);font-family:'DM Sans',sans-serif" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">Remove</button>
         </div>
       </div>` : '';
-    return `<div class="member-card">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5em">
-        <div style="display:flex;align-items:center;gap:0.75em;min-width:0">
+
+    return `<div class="member-card" style="align-items:stretch;text-align:left">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em;margin-bottom:0.9em">
+        <div style="display:flex;align-items:center;gap:0.75em;min-width:0;flex:1;overflow:hidden">
           <div class="member-avatar" style="background:${col};flex-shrink:0">${init}</div>
-          <div style="min-width:0">
-            <div class="member-name">${m.firstName} ${m.lastName}</div>
-            <div style="font-size:0.72rem;color:var(--muted);margin-top:0.1em">${m.email||''}</div>
+          <div style="min-width:0;overflow:hidden">
+            <div class="member-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.firstName} ${m.lastName}</div>
+            <div style="font-size:0.72rem;color:var(--muted);margin-top:0.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.email||'—'}</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:0.5em;flex-shrink:0">
-          ${roleTag}
-          ${menu}
+        <div style="display:flex;align-items:center;gap:0.4em;flex-shrink:0">
+          ${roleTag}${menu}
         </div>
       </div>
-      <div class="member-stats" style="margin-top:0.85em">
-        <div class="member-stat"><div class="member-stat-val">$${fmt(spend)}</div><div class="member-stat-lbl">spent</div></div>
-        <div class="member-stat"><div class="member-stat-val">${count}</div><div class="member-stat-lbl">purchases</div></div>
+      <div style="display:flex;gap:1.5em;padding-top:0.75em;border-top:1px solid var(--border)">
+        <div><div class="member-stat-val">$${fmt(spend)}</div><div class="member-stat-lbl">spent</div></div>
+        <div><div class="member-stat-val">${count}</div><div class="member-stat-lbl">purchases</div></div>
       </div>
     </div>`;
   }).join('');
