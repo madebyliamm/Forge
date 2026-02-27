@@ -318,13 +318,6 @@ tr:hover td { background: rgba(255,255,255,0.015); }
     <!-- CATEGORY BUILDER -->
     <div class="field">
       <label>Budget categories</label>
-      <!-- Always-present All category -->
-      <div id="np-cats-list" style="display:flex;flex-direction:column;gap:0.4em;margin-bottom:0.6em">
-        <div class="cat-chip cat-chip-all">
-          <span style="font-size:0.8rem;font-weight:600">All</span>
-          <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">Tracks total spend</span>
-        </div>
-      </div>
       <!-- Add category row -->
       <div style="display:flex;gap:0.5em;align-items:center">
         <input type="text" id="np-cat-name" placeholder="Category name" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.55em 0.75em;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.12s"/>
@@ -333,6 +326,13 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
       <div id="np-cat-err" style="font-size:0.72rem;color:var(--red);margin-top:0.3em;display:none"></div>
       <div style="font-size:0.72rem;color:var(--muted);margin-top:0.4em">% = portion of total budget allocated to this category. Optional.</div>
+      <!-- Category chips appear below -->
+      <div id="np-cats-list" style="display:flex;flex-direction:column;gap:0.4em;margin-top:0.6em">
+        <div class="cat-chip cat-chip-all">
+          <span style="font-size:0.8rem;font-weight:600">All</span>
+          <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">Tracks total spend</span>
+        </div>
+      </div>
     </div>
 
     <div class="modal-foot">
@@ -474,13 +474,13 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <div class="modal-title">Edit Categories</div>
       <button class="modal-close" onclick="closeModal('editCatsModal')">✕</button>
     </div>
-    <div id="ec-chips-list" style="display:flex;flex-direction:column;gap:0.4em;margin-bottom:0.75em"></div>
     <div style="display:flex;gap:0.5em;align-items:center">
       <input type="text"   id="ec-cat-name" placeholder="Category name" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.55em 0.75em;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none"/>
       <input type="number" id="ec-cat-pct"  placeholder="%" min="1" max="100" style="width:4em;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.55em 0.6em;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;text-align:center"/>
       <button onclick="ecAddCategory()" style="width:2.2em;height:2.2em;border-radius:0.4em;border:none;background:var(--blue);color:#fff;font-size:1.1rem;cursor:pointer;display:grid;place-items:center;flex-shrink:0">+</button>
     </div>
     <div id="ec-err" style="font-size:0.72rem;color:var(--red);margin-top:0.3em;display:none"></div>
+    <div id="ec-chips-list" style="display:flex;flex-direction:column;gap:0.4em;margin-top:0.75em"></div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal('editCatsModal')">Cancel</button>
       <button class="btn-save"   onclick="saveEditedCats()">Save Categories</button>
