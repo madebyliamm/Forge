@@ -516,7 +516,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <div class="logo-mark"><svg viewBox="0 0 14 14" fill="none" width="14" height="14"><path d="M3 3h8M3 7h5M3 11V3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <span class="logo-name">Forge<span class="tld">.inc</span></span>
     </a>
-    <div class="sidebar-company" style="flex-shrink:0;cursor:pointer;transition:background 0.12s" onclick="openModal('companySettingsModal')" title="Company settings"
+    <div class="sidebar-company" style="flex-shrink:0;cursor:pointer;transition:background 0.12s" onclick="openCompanyPanel()" title="Company settings"
       onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background=''">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em">
         <div style="display:flex;align-items:center;gap:0.6em;min-width:0">
@@ -732,6 +732,40 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
 
 <!-- COMPANY SETTINGS MODAL -->
+<!-- COMPANY INFO (read-only, for non-editors) -->
+<div class="modal-bg" id="companyInfoModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-head">
+      <div class="modal-title">Company Info</div>
+      <button class="modal-close" onclick="closeModal('companyInfoModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:1em;margin-bottom:1.4em">
+      <div id="ci-logo" style="width:52px;height:52px;border-radius:10px;background:var(--blue);display:grid;place-items:center;font-size:1rem;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden"></div>
+      <div>
+        <div style="font-size:1.05rem;font-weight:700" id="ci-name">—</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:0.2em" id="ci-plan">—</div>
+      </div>
+    </div>
+    <div style="display:grid;gap:0.6em">
+      <div style="display:flex;justify-content:space-between;padding:0.6em 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.8rem;color:var(--muted)">Team size</span>
+        <span style="font-size:0.8rem;font-weight:600" id="ci-workers">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:0.6em 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.8rem;color:var(--muted)">Admin</span>
+        <span style="font-size:0.8rem;font-weight:600" id="ci-admin">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:0.6em 0">
+        <span style="font-size:0.8rem;color:var(--muted)">Team code</span>
+        <span style="font-size:0.8rem;font-weight:600;font-family:monospace" id="ci-code">—</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-save" onclick="closeModal('companyInfoModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="companySettingsModal">
   <div class="modal" style="max-width:440px">
     <div class="modal-head">
@@ -1015,6 +1049,18 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
 <script>
 // ══ DATA ══
+const ALL_PERMISSIONS = [
+  { id: 'view_all_projects',    label: 'View all projects'       },
+  { id: 'view_assigned',        label: 'View assigned projects only' },
+  { id: 'add_purchases',        label: 'Add purchases'           },
+  { id: 'view_all_purchases',   label: 'View all purchases'      },
+  { id: 'view_team',            label: 'View team members'       },
+  { id: 'view_budget',          label: 'View budget details'     },
+  { id: 'view_reports',         label: 'View reports'            },
+  { id: 'edit_company',         label: 'Edit company info'       },
+];
+const DEFAULT_WORKER_PERMISSIONS = ['view_assigned', 'add_purchases'];
+
 // ══ SUPABASE ══
 const SB_URL = 'https://rgexuyvucvcqulnhypkw.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnZXh1eXZ1Y3ZjcXVsbmh5cGt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzMxMzcsImV4cCI6MjA4NzU0OTEzN30.j2RTOp9Bfc9s0QV4YFqyz_Y4u8-buqtp2yhccF8D_LE';
@@ -1483,7 +1529,7 @@ function renderDashboard() {
     '<div class="stat-card s-blue"><div class="stat-lbl">Total Budget</div><div class="stat-val">$'+fmt(totalBudget)+'</div><div class="stat-note">'+DB.projects.length+' active project'+(DB.projects.length!==1?'s':'')+'</div></div>'+
     '<div class="stat-card '+statColor+'"><div class="stat-lbl">Total Spent</div><div class="stat-val '+(pct>90?'c-red':pct>70?'c-orange':'')+'">$'+fmt(totalSpent)+'</div><div class="stat-note">'+pct+'% of combined budget</div></div>'+
     '<div class="stat-card '+(remaining<0?'s-red':'s-green')+'"><div class="stat-lbl">Remaining</div><div class="stat-val '+(remaining<0?'c-red':'c-green')+'">$'+fmt(Math.abs(remaining))+(remaining<0?' over':'')+'</div><div class="stat-note">Across all projects</div></div>'+
-    '<div class="stat-card '+(atRisk>0?'s-orange':'s-blue')+'"><div class="stat-lbl">At Risk</div><div class="stat-val '+(atRisk>0?'c-orange':'c-blue')+'">'+atRisk+'</div><div class="stat-note">'+(atRisk>0?'project'+(atRisk!==1?'s':'')+' need attention':'All projects healthy')+'</div></div>';
+    '<div class="stat-card s-blue"><div class="stat-lbl">Total Projects</div><div class="stat-val c-blue">'+DB.projects.length+'</div><div class="stat-note">'+(DB.projects.length===1?'1 active project':DB.projects.length+' active projects')+'</div></div>';
 
   document.getElementById('dashSub').textContent = DB.projects.length
     ? DB.projects.length+' project'+(DB.projects.length!==1?'s':'')+' · '+DB.purchases.length+' purchase'+(DB.purchases.length!==1?'s':'')+' logged'
@@ -1680,6 +1726,39 @@ function openCompanySettingsModal() {
     preview.style.background = '#1a6de8';
   }
 }
+function canEditCompany() {
+  // Admin (company creator) can always edit
+  if (DB.role === 'admin') return true;
+  // Workers need edit_company permission
+  const uid = getSession()?.user?.id;
+  const me = DB.team.find(m => m.user_id === uid);
+  if (!me) return false;
+  if ((me.role||'').toLowerCase() === 'admin') return true;
+  return Array.isArray(me.permissions) && me.permissions.includes('edit_company');
+}
+
+function openCompanyPanel() {
+  if (canEditCompany()) {
+    openModal('companySettingsModal');
+  } else {
+    // Populate read-only view
+    const planLabels = { starter:'Starter ($49/mo)', growth:'Growth ($99/mo)', pro:'Pro ($199/mo)', enterprise:'Enterprise ($399/mo)' };
+    const ci_logo = document.getElementById('ci-logo');
+    if (DB.logoUrl) {
+      ci_logo.innerHTML = '<img src="'+DB.logoUrl+'" style="width:100%;height:100%;object-fit:cover"/>';
+    } else {
+      ci_logo.textContent = (DB.companyName||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      ci_logo.style.background = 'var(--blue)';
+    }
+    document.getElementById('ci-name').textContent = DB.companyName || '—';
+    document.getElementById('ci-plan').textContent = planLabels[DB.plan] || DB.plan || '—';
+    document.getElementById('ci-workers').textContent = (DB.workerCount || '—') + ' workers';
+    document.getElementById('ci-admin').textContent = (DB.firstName + ' ' + DB.lastName).trim() || '—';
+    document.getElementById('ci-code').textContent = DB.teamCode || '—';
+    openModal('companyInfoModal');
+  }
+}
+
 async function saveCompanySettings() {
   const name    = document.getElementById('cs-name').value.trim();
   const first   = document.getElementById('cs-first').value.trim();
