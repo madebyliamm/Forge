@@ -375,6 +375,7 @@ async function submitCreate() {
   const btn = document.getElementById('startTrialBtn');
   btn.textContent = 'Creating account…'; btn.disabled = true;
   try {
+    // 1. Sign up
     const auth = await sbAuth('signup', {
       email: companyData.email, password: companyData.password,
       data: { first_name: companyData.firstName, last_name: companyData.lastName }
@@ -382,13 +383,22 @@ async function submitCreate() {
     const token  = auth.access_token;
     const userId = auth.user?.id;
     if (!token || !userId) throw new Error('Signup failed — please try again');
-    await sbPost('companies', {
+
+    // 2. Create company
+    const companies = await sbPost('companies', {
       owner_id: userId, name: companyData.companyName,
       plan: selectedPlan, team_code: genCode(),
       worker_count: workers, trial_end: Date.now() + 14 * 24 * 60 * 60 * 1000
     }, token);
+
+    const company = Array.isArray(companies) ? companies[0] : companies;
+    if (!company?.id) throw new Error('Company creation failed — please try again');
+
+    // 3. Save session + company_id so dashboard can find it immediately
     localStorage.setItem('forge_session', JSON.stringify(auth));
+    localStorage.setItem('forge_company_id', company.id);
     window.location.href = 'dashboard.html';
+
   } catch(err) {
     btn.textContent = 'Start 14-Day Free Trial'; btn.disabled = false;
     showToast(err.message);
