@@ -1894,15 +1894,22 @@ function renderTeam() {
   const teamDotBtn = document.getElementById('teamDotBtn');
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
   const currentUid = getSession()?.user?.id;
-  // ownerEntry is always shown — workers need to see the admin too
-  // But for workers, their own entry already exists in DB.team, so exclude DB.team entries matching currentUid if they are the admin
+  // ownerEntry = the company admin (always shown for everyone)
   const ownerEntry = {
     _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
     email: '', role: 'owner', isOwner: true, user_id: isPrimaryAdmin ? currentUid : null
   };
-  // If current user is a worker, filter out any DB.team row that matches the ownerEntry's name to avoid duplication
-  // (workers are in DB.team; the admin is NOT in DB.team so no dedup needed for admins)
-  const fullTeam = [ownerEntry, ...DB.team].sort((a, b) => {
+  // DB.team contains ALL team_members rows including the current worker's own row.
+  // For workers: filter out their own row so they don't appear twice (ownerEntry covers the admin, DB.team covers everyone else except the logged-in worker)
+  // For admins: they are NOT in DB.team so no filtering needed
+  // For workers: remove their own row from the general list, then re-add it tagged as isYou
+  // This prevents duplication while still showing their card correctly
+  const myTeamRow = !isPrimaryAdmin ? DB.team.find(m => m.user_id === currentUid) : null;
+  const filteredTeam = isPrimaryAdmin
+    ? DB.team
+    : DB.team.filter(m => m.user_id !== currentUid);
+  const myEntry = myTeamRow ? { ...myTeamRow, isYou: true } : null;
+  const fullTeam = [ownerEntry, ...filteredTeam, ...(myEntry ? [myEntry] : [])].sort((a, b) => {
     const la = (a.lastName || '').trim().toLowerCase();
     const lb = (b.lastName || '').trim().toLowerCase();
     if (!la && !lb) return 0;
@@ -1922,7 +1929,7 @@ function renderTeam() {
     const role    = (m.role||'worker').toLowerCase();
     const isOwner = !!m.isOwner;
     const currentUid = getSession()?.user?.id;
-    const isYou = isOwner || (m.user_id && m.user_id === currentUid);
+    const isYou = isOwner || !!m.isYou || (m.user_id && m.user_id === currentUid);
 
     const adminStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)`;
     const workerStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)`;
