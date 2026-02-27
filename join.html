@@ -218,19 +218,15 @@ async function init() {
   if (!joinCode) { showCard('cardInvalid'); return; }
 
   try {
-    const rows = await sbGet('companies', 'team_code=eq.' + encodeURIComponent(joinCode) + '&select=id,name,logo_url&limit=1');
+    const rows = await sbGet('companies', 'team_code=eq.' + encodeURIComponent(joinCode) + '&select=id,name&limit=1');
     if (!rows.length) { showCard('cardInvalid'); return; }
     company = rows[0];
 
     // Populate header
     const avatar  = document.getElementById('companyAvatar');
-    if (company.logo_url) {
-      avatar.innerHTML = '<img src="' + company.logo_url + '" alt=""/>';
-    } else {
-      const initials = company.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      avatar.textContent = initials;
-      avatar.style.background = avatarColor(company.name);
-    }
+    const initials = company.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    avatar.textContent = initials;
+    avatar.style.background = avatarColor(company.name);
     document.getElementById('cardTitle').textContent  = 'Join ' + company.name;
     document.getElementById('cardSub').textContent    = 'You\'ve been invited to join ' + company.name + ' on Forge.inc.';
     document.getElementById('btnText').textContent    = 'Join ' + company.name;
