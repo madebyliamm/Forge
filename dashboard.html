@@ -999,135 +999,74 @@ async function loadFromSupabase() {
   const session = getSession();
   if (!session?.access_token) { window.location.replace('auth.html'); return false; }
 
-  // Refresh session if expired
-  if (session.expires_at && Date.now() / 1000 > session.expires_at - 60) {
-    try {
-      const r = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
-        method: 'POST',
-        headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-      if (r.ok) { const fresh = await r.json(); setSession(fresh); }
-      else { setSession(null); window.location.replace('auth.html'); return false; }
-    } catch(e) { /* continue with existing session */ }
-  }
-
   try {
-    // Try as admin first (owner)
-    let companies = await sbGet('companies', 'owner_id=eq.' + session.user.id + '&select=*&limit=1');
+    const uid  = session.user.id;
+    const meta = session.user.user_metadata || {};
+
+    // ── Find company ──
+    // Admin: owns the company
+    // Worker: company_id stored in their auth metadata at join time
+    let co       = null;
     let isWorker = false;
 
-    if (!companies.length) {
-      // Try as worker — check user metadata first (set at signup), then team_members table
-      const meta = session.user.user_metadata || {};
-      if (meta.company_id) {
-        companies = await sbGet('companies', 'id=eq.' + meta.company_id + '&select=*&limit=1');
-        if (companies.length) isWorker = true;
-      }
-      // Fallback: look up via team_members table
-      if (!companies.length) {
-        try {
-          const memberRows = await sbGet('team_members', 'select=company_id&limit=1');
-          if (memberRows && memberRows.length) {
-            companies = await sbGet('companies', 'id=eq.' + memberRows[0].company_id + '&select=*&limit=1');
-            if (companies.length) isWorker = true;
-          }
-        } catch(e) { console.error('team_members lookup failed', e); }
-      }
+    const adminCompanies = await sbGet('companies', 'owner_id=eq.' + uid + '&select=*&limit=1');
+    if (adminCompanies.length) {
+      co = adminCompanies[0];
+    } else if (meta.company_id) {
+      const workerCompanies = await sbGet('companies', 'id=eq.' + meta.company_id + '&select=*&limit=1');
+      if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
     }
 
-    // Only auto-create company if user has no company_id in metadata (pure admin signup failure)
-    if (!companies.length && !isWorker && !(session.user.user_metadata?.company_id)) {
-      const meta = session.user.user_metadata || {};
-      const teamCode = genCode();
-      const trialEnd = Date.now() + 14 * 24 * 60 * 60 * 1000;
-      try {
-        await sbPost('companies', {
-          owner_id: session.user.id,
-          name: meta.company_name || 'My Company',
-          plan: 'starter',
-          team_code: teamCode,
-          worker_count: 5,
-          trial_end: trialEnd
-        });
-        companies = await sbGet('companies', 'owner_id=eq.' + session.user.id + '&select=*&limit=1');
-      } catch(e) {
-        console.error('Failed to create company:', e);
-      }
-    }
-
-    if (!companies.length) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:1em;font-family:sans-serif;color:#999"><div style="font-size:1.2rem;color:#f0f0f0">Setup incomplete</div><div>Company record missing. <a href="auth.html" style="color:#4a8ff0">Sign out and try again</a></div></div>';
+    // No company found at all — sign them out cleanly, don't loop
+    if (!co) {
+      setSession(null);
+      window.location.replace('auth.html');
       return false;
     }
 
-    const co = companies[0];
     COMPANY_ID = co.id;
 
-    // Get all data in parallel
+    // ── Load all data in parallel ──
     const [projects, purchases, team] = await Promise.all([
-      sbGet('projects', 'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc'),
-      sbGet('purchases', 'company_id=eq.' + COMPANY_ID + '&order=ts.desc'),
+      sbGet('projects',     'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc'),
+      sbGet('purchases',    'company_id=eq.' + COMPANY_ID + '&order=ts.desc'),
       sbGet('team_members', 'company_id=eq.' + COMPANY_ID)
     ]);
 
-    // Map to local DB format
     DB = {
       companyName: co.name,
-      plan: co.plan,
-      teamCode: co.team_code,
-      trialEnd: co.trial_end,
+      plan:        co.plan,
+      teamCode:    co.team_code,
+      trialEnd:    co.trial_end,
       workerCount: co.worker_count || 0,
-      logoUrl: co.logo_url || null,
-      firstName: session.user.user_metadata?.first_name || '',
-      lastName:  session.user.user_metadata?.last_name  || '',
-      role: isWorker ? 'worker' : 'admin',
+      logoUrl:     co.logo_url || null,
+      firstName:   meta.first_name || '',
+      lastName:    meta.last_name  || '',
+      role:        isWorker ? 'worker' : 'admin',
       projects: projects.map(p => ({
-        _id: p.id,
-        name: p.name,
-        client: p.client,
-        location: p.location,
-        budget: p.budget,
-        startDate: p.start_date,
-        color: p.color,
-        categories: p.categories || [],
-        catBudgets: {}
+        _id: p.id, name: p.name, client: p.client,
+        location: p.location, budget: p.budget,
+        startDate: p.start_date, color: p.color,
+        categories: p.categories || [], catBudgets: {}
       })),
       purchases: purchases.map(pu => {
         const projectIdx = projects.findIndex(p => p.id === pu.project_id);
         return {
-          _id: pu.id,
-          vendor: pu.vendor,
-          amount: pu.amount,
-          category: pu.category,
-          date: pu.date,
-          notes: pu.notes,
-          worker: pu.worker,
-          ts: pu.ts,
-          projectIdx
+          _id: pu.id, vendor: pu.vendor, amount: pu.amount,
+          category: pu.category, date: pu.date, notes: pu.notes,
+          worker: pu.worker, ts: pu.ts, projectIdx
         };
       }).filter(pu => pu.projectIdx >= 0),
       team: team.map(m => ({
-        _id: m.id,
-        firstName: m.first_name,
-        lastName:  m.last_name,
-        email: m.email,
-        role: m.role
+        _id: m.id, firstName: m.first_name, lastName: m.last_name,
+        email: m.email, role: m.role
       }))
     };
 
     return true;
+
   } catch(err) {
-    console.error('Supabase load error:', err);
-    // Fall back to cache if available
-    const cached = localStorage.getItem('forge_cache');
-    if (cached) {
-      DB = JSON.parse(cached);
-      DB.projects  = DB.projects  || [];
-      DB.purchases = DB.purchases || [];
-      DB.team      = DB.team      || [];
-      return true;
-    }
+    console.error('loadFromSupabase error:', err);
     return false;
   }
 }
