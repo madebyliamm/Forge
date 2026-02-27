@@ -15,7 +15,8 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
     const s = localStorage.getItem('forge_session');
     if (s) {
       const parsed = JSON.parse(s);
-      const hasToken = parsed?.access_token;
+      const hasToken = !!parsed?.access_token;
+      // expires_at is in seconds; if missing assume valid
       const notExpired = !parsed?.expires_at || (parsed.expires_at * 1000) > Date.now();
       if (hasToken && notExpired) window.location.replace('dashboard.html');
     }
