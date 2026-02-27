@@ -852,9 +852,12 @@ function sbHeaders() {
   if (session?.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
   return headers;
 }
-async function sbGet(table, params) {
+async function sbGet(table, params, token) {
   const q = params ? '?' + params : '';
-  const r = await fetch(SB_URL + '/rest/v1/' + table + q, { headers: sbHeaders() });
+  const headers = token
+    ? { 'apikey': SB_KEY, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+    : sbHeaders();
+  const r = await fetch(SB_URL + '/rest/v1/' + table + q, { headers });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -1010,10 +1013,20 @@ async function loadFromSupabase() {
   }
 
   try {
-    // Get company
+    // Try as admin first (owner)
     let companies = await sbGet('companies', 'owner_id=eq.' + session.user.id + '&select=*&limit=1');
+    let isWorker = false;
 
-    // If no company exists yet (signup succeeded but company creation failed), create it now
+    if (!companies.length) {
+      // Try as worker — look up via team_members
+      const memberRows = await sbGet('team_members', 'select=company_id&limit=1');
+      if (memberRows && memberRows.length) {
+        companies = await sbGet('companies', 'id=eq.' + memberRows[0].company_id + '&select=*&limit=1');
+        isWorker = true;
+      }
+    }
+
+    // If still no company — admin whose company creation failed, auto-create
     if (!companies.length) {
       const meta = session.user.user_metadata || {};
       const teamCode = genCode();
@@ -1034,7 +1047,6 @@ async function loadFromSupabase() {
     }
 
     if (!companies.length) {
-      // Still nothing — show error, don't loop
       document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:1em;font-family:sans-serif;color:#999"><div style="font-size:1.2rem;color:#f0f0f0">Setup incomplete</div><div>Company record missing. <a href="auth.html" style="color:#4a8ff0">Sign out and try again</a></div></div>';
       return false;
     }
@@ -1059,7 +1071,7 @@ async function loadFromSupabase() {
       logoUrl: co.logo_url || null,
       firstName: session.user.user_metadata?.first_name || '',
       lastName:  session.user.user_metadata?.last_name  || '',
-      role: 'admin',
+      role: isWorker ? 'worker' : 'admin',
       projects: projects.map(p => ({
         _id: p.id,
         name: p.name,
