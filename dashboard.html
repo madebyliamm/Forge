@@ -1018,11 +1018,21 @@ async function loadFromSupabase() {
     let isWorker = false;
 
     if (!companies.length) {
-      // Try as worker — look up via team_members
-      const memberRows = await sbGet('team_members', 'select=company_id&limit=1');
-      if (memberRows && memberRows.length) {
-        companies = await sbGet('companies', 'id=eq.' + memberRows[0].company_id + '&select=*&limit=1');
-        isWorker = true;
+      // Try as worker — check user metadata first (set at signup), then team_members table
+      const meta = session.user.user_metadata || {};
+      if (meta.company_id) {
+        companies = await sbGet('companies', 'id=eq.' + meta.company_id + '&select=*&limit=1');
+        if (companies.length) isWorker = true;
+      }
+      // Fallback: look up via team_members table
+      if (!companies.length) {
+        try {
+          const memberRows = await sbGet('team_members', 'select=company_id&limit=1');
+          if (memberRows && memberRows.length) {
+            companies = await sbGet('companies', 'id=eq.' + memberRows[0].company_id + '&select=*&limit=1');
+            if (companies.length) isWorker = true;
+          }
+        } catch(e) { console.error('team_members lookup failed', e); }
       }
     }
 
