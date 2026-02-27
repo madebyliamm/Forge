@@ -1009,16 +1009,18 @@ async function loadFromSupabase() {
     let co       = null;
     let isWorker = false;
 
+    // Check localStorage first — set at account creation or worker join
+    const cachedCompanyId = localStorage.getItem('forge_company_id');
+
     const adminCompanies = await sbGet('companies', 'owner_id=eq.' + uid + '&select=*&limit=1');
     if (adminCompanies.length) {
       co = adminCompanies[0];
-    } else {
-      // Worker — get company_id from localStorage (set at join time)
-      const workerCompanyId = localStorage.getItem('forge_company_id') || meta.company_id;
-      if (workerCompanyId) {
-        const workerCompanies = await sbGet('companies', 'id=eq.' + workerCompanyId + '&select=*&limit=1');
-        if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
-      }
+      // Keep localStorage in sync
+      localStorage.setItem('forge_company_id', co.id);
+    } else if (cachedCompanyId) {
+      // Worker — look up by cached company_id
+      const workerCompanies = await sbGet('companies', 'id=eq.' + cachedCompanyId + '&select=*&limit=1');
+      if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
     }
 
     // No company found — sign out cleanly, don't loop
