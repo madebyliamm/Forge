@@ -278,7 +278,8 @@ async function submitJoin() {
     if (token) {
       await sbPost('team_members', {
         company_id: company.id, first_name: first, last_name: last,
-        email: email || null, role: 'Worker'
+        email: email || null, role: 'Worker',
+        user_id: auth.user?.id || null
       }, token);
       localStorage.setItem('forge_session', JSON.stringify(auth));
       localStorage.setItem('forge_company_id', company.id);
