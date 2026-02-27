@@ -1024,6 +1024,30 @@ function setSession(s) {
   else localStorage.removeItem('forge_session');
 }
 
+// Refresh the access token using the refresh_token if the current one is expired or close to expiring
+async function refreshSessionIfNeeded() {
+  const session = getSession();
+  if (!session) return null;
+  // expires_at is in seconds; refresh if within 60 seconds of expiry or already expired
+  const expiresAt = session.expires_at ? session.expires_at * 1000 : null;
+  const needsRefresh = !expiresAt || (expiresAt - Date.now()) < 60000;
+  if (!needsRefresh) return session;
+  if (!session.refresh_token) return session; // can't refresh, just try with what we have
+  try {
+    const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    if (!res.ok) { setSession(null); localStorage.removeItem('forge_company_id'); return null; }
+    const fresh = await res.json();
+    setSession(fresh);
+    return fresh;
+  } catch(e) {
+    return session; // network error — try with existing token
+  }
+}
+
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let c = '';
@@ -1127,12 +1151,12 @@ async function sbSaveCompany() {
 
 // ── Load all data from Supabase ──
 async function loadFromSupabase() {
-  const session = getSession();
+  let session = await refreshSessionIfNeeded();
   if (!session?.access_token) { window.location.replace('auth.html'); return false; }
 
   try {
-    const uid  = session.user.id;
-    const meta = session.user.user_metadata || {};
+    const uid  = session.user?.id || getSession()?.user?.id;
+    const meta = session.user?.user_metadata || getSession()?.user?.user_metadata || {};
 
     // ── Find company ──
     // Admin: owns the company
@@ -2422,24 +2446,50 @@ async function saveProfile() {
 
   btn.textContent = 'Saving…'; btn.disabled = true;
   try {
-    DB.firstName    = first;
-    DB.lastName     = last;
-    DB.jobTitle     = title;
-    DB.phone        = phone;
-    DB.avatarColor  = _profileAvatarColor;
-    DB.avatarImage  = (_profileAvatarMode === 'image' ? _profileAvatarImageData : null);
+    const avatarImage = (_profileAvatarMode === 'image' ? _profileAvatarImageData : null);
 
     // Persist to Supabase user metadata
     const session = getSession();
-    if (session?.access_token) {
-      await fetch(SB_URL + '/auth/v1/user', {
-        method: 'PUT',
-        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { first_name: first, last_name: last, job_title: title, phone, avatar_color: _profileAvatarColor, avatar_image: DB.avatarImage } })
-      });
+    if (!session?.access_token) { showToast('Not signed in'); return; }
+
+    const newMeta = {
+      first_name:   first,
+      last_name:    last,
+      job_title:    title,
+      phone:        phone,
+      avatar_color: _profileAvatarColor,
+      avatar_image: avatarImage
+    };
+
+    // Refresh token if needed before making the authenticated request
+    const freshSession = await refreshSessionIfNeeded();
+    if (!freshSession?.access_token) { showToast('Session expired — please sign in again'); return; }
+
+    const res = await fetch(SB_URL + '/auth/v1/user', {
+      method: 'PUT',
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + freshSession.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: newMeta })
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.message || ('HTTP ' + res.status));
     }
 
-    // Update sidebar
+    // Update the cached session in localStorage so reload reads fresh data
+    const updatedSession = JSON.parse(JSON.stringify(freshSession));
+    if (!updatedSession.user) updatedSession.user = {};
+    updatedSession.user.user_metadata = { ...(updatedSession.user.user_metadata || {}), ...newMeta };
+    setSession(updatedSession);
+
+    // Update in-memory DB
+    DB.firstName   = first;
+    DB.lastName    = last;
+    DB.jobTitle    = title;
+    DB.phone       = phone;
+    DB.avatarColor = _profileAvatarColor;
+    DB.avatarImage = avatarImage;
+
+    // Update sidebar avatar + name live
     const initials = (first[0] + (last[0]||'')).toUpperCase();
     const avatarEl = document.getElementById('userAvatar');
     if (DB.avatarImage) {
@@ -2452,6 +2502,7 @@ async function saveProfile() {
     document.getElementById('userName').textContent = (first + ' ' + last).trim();
     renderTeam();
     closeModal('profileModal');
+    showToast('Profile saved');
   } catch(e) {
     showToast('Save failed — ' + e.message);
   } finally {
