@@ -516,7 +516,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <div class="logo-mark"><svg viewBox="0 0 14 14" fill="none" width="14" height="14"><path d="M3 3h8M3 7h5M3 11V3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <span class="logo-name">Forge<span class="tld">.inc</span></span>
     </a>
-    <div class="sidebar-company" style="flex-shrink:0;cursor:pointer;transition:background 0.12s" onclick="openCompanyPanel()" title="Company settings"
+    <div class="sidebar-company" style="flex-shrink:0;cursor:pointer;transition:background 0.12s" onclick="openCompanyInfo()" title="Company info"
       onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background=''">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5em">
         <div style="display:flex;align-items:center;gap:0.6em;min-width:0">
@@ -737,7 +737,12 @@ tr:hover td { background: rgba(255,255,255,0.015); }
   <div class="modal" style="max-width:360px">
     <div class="modal-head">
       <div class="modal-title">Company Info</div>
-      <button class="modal-close" onclick="closeModal('companyInfoModal')">✕</button>
+      <div style="display:flex;align-items:center;gap:0.5em">
+        <button id="ci-edit-btn" onclick="closeModal('companyInfoModal');openModal('companySettingsModal')" title="Edit company info" style="display:none;background:none;border:none;cursor:pointer;color:var(--muted);padding:0.2em;border-radius:0.3em;transition:color 0.12s" onmouseenter="this.style.color='var(--text)'" onmouseleave="this.style.color='var(--muted)'">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11 2.5a1.5 1.5 0 012.121 2.121l-8.5 8.5L2 13.5l.379-2.621 8.5-8.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="modal-close" onclick="closeModal('companyInfoModal')">✕</button>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:1em;margin-bottom:1.4em">
       <div id="ci-logo" style="width:52px;height:52px;border-radius:10px;background:var(--blue);display:grid;place-items:center;font-size:1rem;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden"></div>
@@ -804,10 +809,6 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <label>Your last name</label>
           <input type="text" id="cs-last" placeholder="Smith"/>
         </div>
-      </div>
-      <div class="field" style="margin:0">
-        <label>Number of workers</label>
-        <input type="number" id="cs-workers" placeholder="5" min="1" max="10000"/>
       </div>
       <div class="field" style="margin:0">
         <label>Plan</label>
@@ -1714,7 +1715,6 @@ function openCompanySettingsModal() {
   document.getElementById('cs-name').value    = DB.companyName || '';
   document.getElementById('cs-first').value   = DB.firstName   || '';
   document.getElementById('cs-last').value    = DB.lastName    || '';
-  document.getElementById('cs-workers').value = DB.workerCount || '';
   document.getElementById('cs-plan').value    = DB.plan        || 'starter';
   // Logo preview
   const preview = document.getElementById('cs-logo-preview');
@@ -1727,9 +1727,7 @@ function openCompanySettingsModal() {
   }
 }
 function canEditCompany() {
-  // Admin (company creator) can always edit
   if (DB.role === 'admin') return true;
-  // Workers need edit_company permission
   const uid = getSession()?.user?.id;
   const me = DB.team.find(m => m.user_id === uid);
   if (!me) return false;
@@ -1737,33 +1735,32 @@ function canEditCompany() {
   return Array.isArray(me.permissions) && me.permissions.includes('edit_company');
 }
 
-function openCompanyPanel() {
-  if (canEditCompany()) {
-    openModal('companySettingsModal');
+function openCompanyInfo() {
+  const planLabels = { starter:'Starter ($49/mo)', growth:'Growth ($99/mo)', pro:'Pro ($199/mo)', enterprise:'Enterprise ($399/mo)' };
+  const memberCount = DB.team.length + 1; // +1 for the admin/owner
+  const ci_logo = document.getElementById('ci-logo');
+  if (DB.logoUrl) {
+    ci_logo.innerHTML = '<img src="'+DB.logoUrl+'" style="width:100%;height:100%;object-fit:cover"/>';
   } else {
-    // Populate read-only view
-    const planLabels = { starter:'Starter ($49/mo)', growth:'Growth ($99/mo)', pro:'Pro ($199/mo)', enterprise:'Enterprise ($399/mo)' };
-    const ci_logo = document.getElementById('ci-logo');
-    if (DB.logoUrl) {
-      ci_logo.innerHTML = '<img src="'+DB.logoUrl+'" style="width:100%;height:100%;object-fit:cover"/>';
-    } else {
-      ci_logo.textContent = (DB.companyName||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      ci_logo.style.background = 'var(--blue)';
-    }
-    document.getElementById('ci-name').textContent = DB.companyName || '—';
-    document.getElementById('ci-plan').textContent = planLabels[DB.plan] || DB.plan || '—';
-    document.getElementById('ci-workers').textContent = (DB.workerCount || '—') + ' workers';
-    document.getElementById('ci-admin').textContent = (DB.firstName + ' ' + DB.lastName).trim() || '—';
-    document.getElementById('ci-code').textContent = DB.teamCode || '—';
-    openModal('companyInfoModal');
+    ci_logo.innerHTML = '';
+    ci_logo.textContent = (DB.companyName||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    ci_logo.style.background = 'var(--blue)';
   }
+  document.getElementById('ci-name').textContent = DB.companyName || '—';
+  document.getElementById('ci-plan').textContent = planLabels[DB.plan] || DB.plan || '—';
+  document.getElementById('ci-workers').textContent = memberCount + ' member' + (memberCount !== 1 ? 's' : '');
+  document.getElementById('ci-admin').textContent = (DB.firstName + ' ' + DB.lastName).trim() || '—';
+  document.getElementById('ci-code').textContent = DB.teamCode || '—';
+  // Show/hide edit gear based on permission
+  document.getElementById('ci-edit-btn').style.display = canEditCompany() ? '' : 'none';
+  openModal('companyInfoModal');
 }
 
 async function saveCompanySettings() {
   const name    = document.getElementById('cs-name').value.trim();
   const first   = document.getElementById('cs-first').value.trim();
   const last    = document.getElementById('cs-last').value.trim();
-  const workers = parseInt(document.getElementById('cs-workers').value) || 0;
+  const workers = DB.team.length + 1; // actual member count, not user-entered
   const plan    = document.getElementById('cs-plan').value;
   if (!name) { document.getElementById('cs-name').focus(); return; }
 
