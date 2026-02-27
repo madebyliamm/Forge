@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Report — Forge.inc</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #181818;
+  --border: rgba(255,255,255,0.07);
+  --text: #f0f0f0;
+  --text2: #999;
+  --muted: #555;
+  --green: #0da068;
+  --orange: #f5a623;
+  --red: #ff4444;
+  --blue: #1a6de8;
+  --accent: #1a6de8;
+}
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── LOADING ── */
+#loading {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  z-index: 100;
+  transition: opacity 0.4s ease;
+}
+#loading.hidden { opacity: 0; pointer-events: none; }
+.loader-logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; }
+.loader-logo span { color: #4a8ff0; }
+
+/* ── LAYOUT ── */
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 3em 2em 6em;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.page.visible { opacity: 1; transform: translateY(0); }
+
+/* ── HEADER ── */
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 3em;
+  padding-bottom: 2em;
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  display: flex; align-items: center; gap: 0.6em;
+  font-size: 0.9rem; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text2);
+}
+.brand-mark {
+  width: 1.75rem; height: 1.75rem;
+  background: var(--blue);
+  border-radius: 0.4em;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.brand-name span { color: var(--text); }
+.report-meta { text-align: right; }
+.report-meta-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.25em; }
+.report-meta-date { font-size: 0.85rem; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+
+/* ── HERO ── */
+.report-hero { margin-bottom: 3em; }
+.project-tag {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--blue);
+  margin-bottom: 0.75em;
+}
+.project-tag::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+.project-name {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin-bottom: 0.5em;
+}
+.project-client {
+  font-size: 1rem; color: var(--text2);
+  display: flex; align-items: center; gap: 1.5em; flex-wrap: wrap;
+}
+.project-client-item { display: flex; align-items: center; gap: 0.4em; }
+.project-client-item svg { opacity: 0.4; }
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 3em;
+}
+.stat-box {
+  background: var(--surface);
+  padding: 1.5em 1.75em;
+  position: relative;
+  overflow: hidden;
+}
+.stat-box::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent-color, var(--blue));
+  opacity: 0.6;
+}
+.stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5em; }
+.stat-value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.04em; line-height: 1; margin-bottom: 0.3em; }
+.stat-note { font-size: 0.75rem; color: var(--text2); }
+
+/* ── SECTION ── */
+.section { margin-bottom: 2.5em; }
+.section-title {
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 1.25em;
+  display: flex; align-items: center; gap: 0.75em;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── BUDGET BAR ── */
+.budget-visual {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75em;
+  margin-bottom: 1em;
+}
+.budget-bar-wrap {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface2);
+  margin-bottom: 1em;
+  overflow: visible;
+}
+.budget-bar-fill {
+  position: absolute; top: 0; left: 0; height: 100%;
+  border-radius: 5px;
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 12px rgba(0,0,0,0.4);
+}
+.budget-bar-over {
+  position: absolute; top: 0; left: 0; height: 100%;
+  border-radius: 5px;
+  transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s;
+}
+.budget-bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── CATEGORY BREAKDOWN ── */
+.cat-grid { display: flex; flex-direction: column; gap: 0.85em; }
+.cat-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1em 1.25em;
+}
+.cat-item-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.6em;
+}
+.cat-item-name { font-size: 0.88rem; font-weight: 500; }
+.cat-item-right { display: flex; align-items: center; gap: 1em; }
+.cat-item-pct { font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+.cat-item-amount { font-size: 0.88rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.cat-bar-track {
+  height: 4px; border-radius: 2px; background: var(--surface2);
+  position: relative; overflow: visible;
+}
+.cat-bar-fill {
+  position: absolute; top: 0; left: 0; height: 100%;
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cat-bar-over {
+  position: absolute; top: 0; left: 0; height: 100%;
+  border-radius: 2px;
+  background: rgba(140,15,15,1);
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s;
+}
+
+/* ── PURCHASES TABLE ── */
+.purchases-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.purchases-table-head {
+  display: grid;
+  grid-template-columns: 100px 1fr 100px 120px;
+  padding: 0.75em 1.25em;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--muted);
+}
+.purchase-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 100px 120px;
+  padding: 0.85em 1.25em;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  align-items: center;
+}
+.purchase-row:last-child { border-bottom: none; }
+.purchase-row:hover { background: rgba(255,255,255,0.02); }
+.purchase-date { color: var(--text2); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+.purchase-vendor { font-weight: 500; }
+.purchase-amount { font-weight: 600; font-family: 'JetBrains Mono', monospace; text-align: right; }
+.purchase-cat {
+  display: flex; justify-content: flex-end;
+}
+.cat-pill {
+  display: inline-block;
+  padding: 0.18em 0.6em;
+  border-radius: 100px;
+  font-size: 0.65rem; font-weight: 600;
+  background: rgba(255,255,255,0.06);
+  color: var(--text2);
+}
+
+/* ── PURCHASE DETAIL EXPAND ── */
+.purchase-detail {
+  display: none;
+  grid-column: 1 / -1;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  padding: 0.85em 1.25em;
+  font-size: 0.8rem; color: var(--text2);
+  gap: 1.5em;
+  flex-wrap: wrap;
+}
+.purchase-detail.open { display: flex; }
+.purchase-detail-item strong { color: var(--text); display: block; margin-bottom: 0.15em; }
+
+/* ── FOOTER ── */
+.report-footer {
+  margin-top: 4em;
+  padding-top: 2em;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 1em;
+}
+.footer-brand { font-size: 0.8rem; color: var(--muted); }
+.footer-brand strong { color: var(--text2); }
+.footer-note { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+/* ── STATUS BADGE ── */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  padding: 0.3em 0.8em;
+  border-radius: 100px;
+  font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.status-over { background: rgba(255,68,68,0.12); color: var(--red); }
+.status-warn { background: rgba(245,166,35,0.12); color: var(--orange); }
+.status-good { background: rgba(0,208,132,0.12); color: var(--green); }
+
+/* ── NOT FOUND ── */
+#notFound {
+  display: none;
+  min-height: 100vh;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 1em; text-align: center;
+}
+#notFound.visible { display: flex; }
+
+/* ── ANIMATIONS ── */
+.fade-up {
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.fade-up.visible { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 600px) {
+  .page { padding: 2em 1.25em 4em; }
+  .purchases-table-head,
+  .purchase-row { grid-template-columns: 80px 1fr 90px; }
+  .purchase-cat { display: none; }
+  .report-header { flex-direction: column; gap: 1em; }
+  .report-meta { text-align: left; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loader-logo">Forge<span>.inc</span></div>
+</div>
+
+<div id="notFound">
+  <div style="font-size:3rem">📋</div>
+  <div style="font-size:1.5rem;font-weight:700;letter-spacing:-0.03em">Report not found</div>
+  <div style="color:var(--text2);font-size:0.9rem">This report link may be invalid or expired.</div>
+</div>
+
+<div class="page" id="reportPage">
+
+  <div class="report-header">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 14 14" fill="none" width="14" height="14">
+          <path d="M3 3h8M3 7h5M3 11V3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-name" style="font-size:0.95rem;font-weight:700;letter-spacing:-0.02em">Forge<span style="color:#4a8ff0">.inc</span></div>
+    </div>
+    <div class="report-meta">
+      <div class="report-meta-label">Report Generated</div>
+      <div class="report-meta-date" id="reportDate">—</div>
+    </div>
+  </div>
+
+  <div class="report-hero fade-up">
+    <div class="project-tag">Project Report</div>
+    <div class="project-name" id="heroName">—</div>
+    <div class="project-client" id="heroMeta"></div>
+  </div>
+
+  <div class="stats-row fade-up" id="statsRow"></div>
+
+  <div class="section fade-up">
+    <div class="section-title">Budget Overview</div>
+    <div class="budget-visual">
+      <div class="budget-bar-wrap" id="budgetBarWrap">
+        <div class="budget-bar-fill" id="budgetBarFill" style="width:0%"></div>
+        <div class="budget-bar-over" id="budgetBarOver" style="width:0%;display:none"></div>
+      </div>
+      <div class="budget-bar-labels">
+        <span>$0</span>
+        <span id="budgetSpentLabel">—</span>
+        <span id="budgetTotalLabel">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section fade-up" id="catSection" style="display:none">
+    <div class="section-title">By Category</div>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+
+  <div class="section fade-up">
+    <div class="section-title">Purchase History</div>
+    <div class="purchases-table" id="purchasesTable">
+      <div class="purchases-table-head">
+        <div>Date</div>
+        <div>Vendor</div>
+        <div style="text-align:right">Amount</div>
+        <div style="text-align:right">Category</div>
+      </div>
+      <div id="purchaseRows"></div>
+    </div>
+  </div>
+
+  <div class="report-footer fade-up">
+    <div class="footer-brand">Generated by <strong>Forge.inc</strong> — Construction Budget Tracking</div>
+    <div class="footer-note" id="footerCompany"></div>
+  </div>
+
+</div>
+
+<script>
+function fmt(n) {
+  return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d+'T12:00:00');
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function getStatusBadge(pct) {
+  if (pct > 100) return '<span class="status-badge status-over">Over Budget</span>';
+  if (pct > 80)  return '<span class="status-badge status-warn">Near Limit</span>';
+  return '<span class="status-badge status-good">On Track</span>';
+}
+
+function getColor(pct) {
+  if (pct > 100) return 'var(--red)';
+  if (pct > 80)  return 'var(--orange)';
+  return 'var(--green)';
+}
+
+function load() {
+  // Try URL hash first (forge.inc/report/abc123 style encoded in hash)
+  // Data is encoded as base64 JSON in the hash
+  const hash = window.location.hash.slice(1);
+  if (!hash) return null;
+  try {
+    return JSON.parse(atob(hash));
+  } catch(e) {
+    return null;
+  }
+}
+
+function render(data) {
+  const { project: p, purchases: pus, companyName, generatedAt } = data;
+  const spent = pus.reduce((s,x) => s + x.amount, 0);
+  const rem   = p.budget - spent;
+  const pct   = p.budget > 0 ? Math.round(spent / p.budget * 100) : 0;
+  const col   = getColor(pct);
+
+  // Date
+  document.getElementById('reportDate').textContent =
+    new Date(generatedAt).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  // Hero
+  document.getElementById('heroName').textContent = p.name;
+  const meta = [];
+  if (p.client) meta.push(`<div class="project-client-item"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 10.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${p.client}</div>`);
+  if (p.location) meta.push(`<div class="project-client-item"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1a3.5 3.5 0 013.5 3.5C9.5 7.5 6 11 6 11S2.5 7.5 2.5 4.5A3.5 3.5 0 016 1z" stroke="currentColor" stroke-width="1.3"/><circle cx="6" cy="4.5" r="1" stroke="currentColor" stroke-width="1.2"/></svg>${p.location}</div>`);
+  if (p.startDate) meta.push(`<div class="project-client-item"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v2M8 1v2M1 5h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Started ${fmtDate(p.startDate)}</div>`);
+  meta.push(getStatusBadge(pct));
+  document.getElementById('heroMeta').innerHTML = meta.join('');
+
+  // Stats
+  const stats = [
+    { label: 'Total Budget', value: '$'+fmt(p.budget), note: p.name, color: 'var(--blue)' },
+    { label: 'Total Spent',  value: '$'+fmt(spent),    note: pus.length+' purchases', color: col },
+    { label: 'Remaining',    value: (rem<0?'-':'')+'$'+fmt(Math.abs(rem)), note: rem<0?'Over budget':pct+'% used', color: rem<0?'var(--red)':'var(--green)' },
+    { label: 'Purchases',    value: pus.length,         note: p.categories?.length ? p.categories.length+' categories' : 'No categories', color: 'var(--blue)' },
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s =>
+    `<div class="stat-box" style="--accent-color:${s.color}">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="color:${s.color}">${s.value}</div>
+      <div class="stat-note">${s.note}</div>
+    </div>`
+  ).join('');
+
+  // Budget bar — animate after paint
+  const budgetWrap = document.getElementById('budgetBarWrap');
+  if (pct > 100) {
+    budgetWrap.style.background = 'rgba(90,10,10,0.65)';
+  }
+  setTimeout(() => {
+    const fill = document.getElementById('budgetBarFill');
+    fill.style.width = Math.min(100, pct) + '%';
+    fill.style.background = col;
+    if (pct > 100) {
+      const over = document.getElementById('budgetBarOver');
+      over.style.display = 'block';
+      over.style.background = 'rgba(140,15,15,1)';
+      setTimeout(() => { over.style.width = Math.min(pct-100, 100)+'%'; }, 300);
+    }
+  }, 300);
+  document.getElementById('budgetSpentLabel').textContent = '$'+fmt(spent)+' spent';
+  document.getElementById('budgetTotalLabel').textContent = '$'+fmt(p.budget)+' budget';
+
+  // Categories
+  const cats = p.categories || [];
+  if (cats.length) {
+    document.getElementById('catSection').style.display = '';
+    document.getElementById('catGrid').innerHTML = cats.map(cat => {
+      const cs   = pus.filter(x => x.category === cat).reduce((s,x) => s+x.amount, 0);
+      const cp   = p.budget > 0 ? Math.round(cs / p.budget * 100) : 0;
+      const catCol = cp > 100 ? 'var(--red)' : cp > 80 ? 'var(--orange)' : (p.color || 'var(--blue)');
+      const overCp = cp > 100 ? Math.min(cp-100, 100) : 0;
+      return `<div class="cat-item">
+        <div class="cat-item-head">
+          <div class="cat-item-name">${cat}</div>
+          <div class="cat-item-right">
+            <div class="cat-item-pct">${cp}% of budget</div>
+            <div class="cat-item-amount" style="color:${catCol}">$${fmt(cs)}</div>
+          </div>
+        </div>
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width:0%;background:${catCol}" data-width="${Math.min(100,cp)}"></div>
+          ${overCp > 0 ? `<div class="cat-bar-over" style="width:0%" data-width="${overCp}"></div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    // Animate cat bars
+    setTimeout(() => {
+      document.querySelectorAll('.cat-bar-fill, .cat-bar-over').forEach((el, i) => {
+        setTimeout(() => { el.style.width = el.dataset.width + '%'; }, i * 80);
+      });
+    }, 500);
+  }
+
+  // Purchases
+  document.getElementById('purchaseRows').innerHTML = pus.length
+    ? pus.sort((a,b) => new Date(b.date||0) - new Date(a.date||0)).map((pu, i) => `
+        <div class="purchase-row" onclick="toggleDetail(${i})">
+          <div class="purchase-date">${fmtDate(pu.date)}</div>
+          <div class="purchase-vendor">${pu.vendor||'—'}</div>
+          <div class="purchase-amount" style="color:${col}">$${fmt(pu.amount)}</div>
+          <div class="purchase-cat"><span class="cat-pill">${pu.category||'Uncategorized'}</span></div>
+        </div>
+        <div class="purchase-detail" id="detail-${i}">
+          ${pu.notes ? `<div class="purchase-detail-item"><strong>Notes</strong>${pu.notes}</div>` : ''}
+          ${pu.worker ? `<div class="purchase-detail-item"><strong>Added by</strong>${pu.worker}</div>` : ''}
+          <div class="purchase-detail-item"><strong>Amount</strong>$${fmt(pu.amount)}</div>
+          ${pu.category ? `<div class="purchase-detail-item"><strong>Category</strong>${pu.category}</div>` : ''}
+        </div>
+      `).join('')
+    : '<div style="padding:2em;text-align:center;color:var(--muted);font-size:0.85rem">No purchases recorded</div>';
+
+  // Footer
+  document.getElementById('footerCompany').textContent = companyName || '';
+}
+
+function toggleDetail(i) {
+  const el = document.getElementById('detail-'+i);
+  if (el) el.classList.toggle('open');
+}
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  const loading = document.getElementById('loading');
+  const page    = document.getElementById('reportPage');
+  const notFound = document.getElementById('notFound');
+
+  const data = load();
+
+  setTimeout(() => {
+    loading.classList.add('hidden');
+    if (!data) {
+      notFound.classList.add('visible');
+      return;
+    }
+    render(data);
+    page.classList.add('visible');
+    // Stagger fade-ups
+    document.querySelectorAll('.fade-up').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), 100 + i * 80);
+    });
+  }, 600);
+});
+</script>
+</body>
+</html>
