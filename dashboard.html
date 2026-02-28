@@ -1247,7 +1247,9 @@ async function sbSaveProject(proj, localIdx) {
     color: proj.color || '#3b82f6',
     categories: categoriesPayload,
     sort_order: localIdx,
-    assigned_workers: proj.assignedWorkers || []
+    assigned_workers: proj.assignedWorkers || [],
+    labor_enabled: proj.laborEnabled !== false,
+    labor_workers: proj.laborWorkers || {}
   };
   if (proj._id) {
     await sbPatch('projects', 'id=eq.' + proj._id, payload);
@@ -1387,6 +1389,8 @@ async function loadFromSupabase() {
         location: p.location, budget: p.budget,
         startDate: p.start_date, endDate: p.end_date || null, color: p.color,
         assignedWorkers: p.assigned_workers || [],
+        laborEnabled: p.labor_enabled !== false,
+        laborWorkers: p.labor_workers || {},
         // categories stored as [{name, pct}] — rebuild flat arrays for app use
         categories: (p.categories || []).map(c => typeof c === 'object' ? c.name : c),
         catBudgets: Object.fromEntries(
@@ -1456,6 +1460,91 @@ function timeAgo(ts) {
   if (s < 3600) return Math.floor(s/60)+'m ago';
   if (s < 86400) return Math.floor(s/3600)+'h ago';
   return Math.floor(s/86400)+'d ago';
+}
+
+// ══ LABOR ESTIMATE ══
+function calcLaborEstimate(projIdx) {
+  const proj = DB.projects[projIdx];
+  if (!proj || !proj.laborEnabled) return 0;
+  const workers = proj.laborWorkers || {};
+  const start = proj.startDate, end = proj.endDate;
+  const weeks = (start && end) ? Math.max(0, (new Date(end) - new Date(start)) / (7*24*3600*1000)) : 0;
+  return DB.team.reduce((sum, m) => {
+    const uid  = m.user_id || m._id;
+    const hrs  = workers[uid] || 0;
+    const rate = m.hourlyRate || 0;
+    return sum + hrs * rate * weeks;
+  }, 0);
+}
+function calcLaborWeekly(projIdx) {
+  const proj = DB.projects[projIdx];
+  if (!proj || !proj.laborEnabled) return 0;
+  const workers = proj.laborWorkers || {};
+  return DB.team.reduce((sum, m) => {
+    const uid  = m.user_id || m._id;
+    const hrs  = workers[uid] || 0;
+    const rate = m.hourlyRate || 0;
+    return sum + hrs * rate;
+  }, 0);
+}
+
+// ══ LABOR EDIT (in project detail) ══
+function renderLaborEditRows(projIdx) {
+  const proj = DB.projects[projIdx];
+  if (!proj) return '';
+  const workers = proj.laborWorkers || {};
+  const assigned = proj.assignedWorkers || [];
+  const members = DB.team.filter(m => {
+    const uid = m.user_id || m._id;
+    return assigned.length === 0 || assigned.includes(uid);
+  });
+  if (!members.length) return '<div style="font-size:0.78rem;color:var(--muted)">No workers assigned to this project.</div>';
+  const start = proj.startDate, end = proj.endDate;
+  const weeks = (start && end) ? Math.max(0,(new Date(end)-new Date(start))/(7*24*3600*1000)) : 0;
+  const weeklyTotal = calcLaborWeekly(projIdx);
+  const totalEst    = calcLaborEstimate(projIdx);
+  const isAdmin = DB.role === 'admin';
+  return members.map(m => {
+    const uid  = m.user_id || m._id;
+    const name = (m.firstName+' '+m.lastName).trim();
+    const rate = m.hourlyRate || 0;
+    const hrs  = workers[uid] || '';
+    const cost = (parseFloat(hrs)||0) * rate * weeks;
+    return '<div style="display:flex;align-items:center;gap:0.6em;padding:0.28em 0;font-size:0.82rem">' +
+      '<span style="flex:1;font-weight:500">' + name + '</span>' +
+      '<span style="color:var(--muted);font-size:0.72rem">$'+rate+'/hr</span>' +
+      (isAdmin
+        ? '<input type="number" min="0" step="0.5" value="'+hrs+'" placeholder="hrs/wk" ' +
+          'style="width:5em;background:var(--surface);border:1px solid var(--border2);border-radius:0.35em;padding:0.28em 0.45em;font-size:0.78rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" ' +
+          'oninput="saveLaborHours('+projIdx+',\''+uid+'\',this.value)" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>'
+        : '<span style="font-size:0.78rem;color:var(--text2)">'+(hrs||'—')+' hrs/wk</span>') +
+      (cost > 0 ? '<span style="font-size:0.72rem;color:var(--blue-l);font-weight:600;min-width:3.5em;text-align:right">$'+fmt(cost)+'</span>' : '<span style="min-width:3.5em"></span>') +
+    '</div>';
+  }).join('') +
+  (weeklyTotal > 0 || totalEst > 0 ?
+    '<div style="border-top:1px solid rgba(26,109,232,0.15);margin-top:0.4em;padding-top:0.4em;display:flex;justify-content:space-between;font-size:0.75rem;font-weight:600;color:var(--blue-l)">' +
+    '<span>'+(weeklyTotal>0?'$'+fmt(weeklyTotal)+'/wk':'')+'</span>' +
+    '<span>'+(totalEst>0?'$'+fmt(totalEst)+' total est.':((!start||!end)?'Set project dates to see total':''))+'</span>' +
+    '</div>' : '');
+}
+
+function toggleLaborEditPanel(projIdx) {
+  const panel = document.getElementById('labor-edit-panel-'+projIdx);
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+async function saveLaborHours(projIdx, uid, val) {
+  const proj = DB.projects[projIdx];
+  if (!proj) return;
+  if (!proj.laborWorkers) proj.laborWorkers = {};
+  proj.laborWorkers[uid] = parseFloat(val) || 0;
+  // Re-render labor panel inline without full re-render
+  const panel = document.getElementById('labor-edit-panel-'+projIdx);
+  if (panel) panel.innerHTML = renderLaborEditRows(projIdx);
+  // Debounce save
+  clearTimeout(saveLaborHours._t);
+  saveLaborHours._t = setTimeout(() => sbSaveProject(proj, projIdx).catch(console.error), 800);
 }
 
 // ══ BURN RATE ══
@@ -1754,14 +1843,40 @@ function renderProjectDetail(idx) {
 
   // Budget section with Edit Categories button
   const cats = p.categories||[];
-  const catHTML = cats.length ? '<div style="margin-top:1.2em"><div class="section-title" style="margin-bottom:0.75em">By Category</div><div class="cat-rows">'+cats.map(cat=>{
-    const cs  = spentFromPurchases(pus.filter(x=>x.category===cat));
-    const cp  = p.budget>0?Math.round(cs/p.budget*100):0;
-    const alloc = p.catBudgets && p.catBudgets[cat] ? p.catBudgets[cat] : null;
-    const allocLabel = alloc ? ' <span style="font-size:0.65rem;color:var(--muted)">of '+alloc+'% budgeted</span>' : '';
-    const catBaseCol = alloc&&cp>alloc?'var(--red)':p.color;
-    return '<div class="cat-row"><div class="cat-name">'+cat+'</div>'+renderBar(cp,catBaseCol,5)+'<div class="cat-pct">'+cp+'%'+allocLabel+'</div><div class="cat-amt">$'+fmt(cs)+'</div></div>';
-  }).join('')+'</div></div>' : '';
+  const laborEst = calcLaborEstimate(idx);
+  const laborWeekly = calcLaborWeekly(idx);
+
+  // Build labor row if enabled
+  const laborRowHTML = p.laborEnabled ? (function() {
+    const laborCat = 'Labor Estimate';
+    const cs = spentFromPurchases(pus.filter(x=>x.category===laborCat));
+    const cp = p.budget>0 ? Math.round(cs/p.budget*100) : 0;
+    const estPct = p.budget>0 ? Math.round(laborEst/p.budget*100) : 0;
+    const allocLabel = laborEst>0 ? ' <span style="font-size:0.65rem;color:var(--muted)">of $'+fmt(laborEst)+' est.</span>' : '';
+    const col = (cs > laborEst && laborEst > 0) ? 'var(--red)' : p.color;
+    return '<div class="cat-row" style="cursor:pointer" onclick="toggleLaborEditPanel('+idx+')">' +
+      '<div class="cat-name" style="color:var(--blue-l);font-weight:600">⏱ Labor</div>' +
+      renderBar(estPct, p.color, 5) +
+      '<div class="cat-pct">'+estPct+'%'+allocLabel+'</div>' +
+      '<div class="cat-amt">$'+fmt(laborEst)+' est.</div>' +
+    '</div>' +
+    '<div id="labor-edit-panel-'+idx+'" style="display:none;background:rgba(26,109,232,0.04);border:1px solid rgba(26,109,232,0.15);border-radius:0.45em;padding:0.75em;margin:0.35em 0 0.5em">' +
+      renderLaborEditRows(idx) +
+    '</div>';
+  })() : '';
+
+  const catsWithoutLabor = cats.filter(c => c !== 'Labor Estimate');
+  const catHTML = (catsWithoutLabor.length || p.laborEnabled) ? '<div style="margin-top:1.2em"><div class="section-title" style="margin-bottom:0.75em">By Category</div><div class="cat-rows">'+
+    laborRowHTML +
+    catsWithoutLabor.map(cat=>{
+      const cs  = spentFromPurchases(pus.filter(x=>x.category===cat));
+      const cp  = p.budget>0?Math.round(cs/p.budget*100):0;
+      const alloc = p.catBudgets && p.catBudgets[cat] ? p.catBudgets[cat] : null;
+      const allocLabel = alloc ? ' <span style="font-size:0.65rem;color:var(--muted)">of '+alloc+'% budgeted</span>' : '';
+      const catBaseCol = alloc&&cp>alloc?'var(--red)':p.color;
+      return '<div class="cat-row"><div class="cat-name">'+cat+'</div>'+renderBar(cp,catBaseCol,5)+'<div class="cat-pct">'+cp+'%'+allocLabel+'</div><div class="cat-amt">$'+fmt(cs)+'</div></div>';
+    }).join('')+
+  '</div></div>' : '';
 
   document.getElementById('projBudgetSection').innerHTML =
     '<div class="section-head">'+
@@ -2347,9 +2462,13 @@ function pickColor(el) {
 
 // ══ CATEGORY BUILDER STATE ══
 let newProjCats = []; // [{name, pct}]  — "All" is implicit, not stored here
+let newProjLaborEnabled = true; // Labor Estimate chip toggle
+let newProjLaborWorkers = {}; // { uid: hoursPerWeek }
 
 function resetProjectModal() {
   newProjCats = [];
+  newProjLaborEnabled = true;
+  newProjLaborWorkers = {};
   // Populate assign workers checkboxes
   const npWorkersList = document.getElementById('np-workers-list');
   const npWorkersField = document.getElementById('np-workers-field');
@@ -2378,12 +2497,90 @@ function resetProjectModal() {
   newProjColor = '#3b82f6';
 }
 
+function toggleLaborChip() {
+  newProjLaborEnabled = !newProjLaborEnabled;
+  renderCatChips();
+}
+
+function setLaborHours(uid, val) {
+  newProjLaborWorkers[uid] = parseFloat(val) || 0;
+  renderCatChips();
+}
+
+function calcModalLaborEstimate() {
+  const start = document.getElementById('np-start')?.value;
+  const end   = document.getElementById('np-end')?.value;
+  if (!start || !end) return 0;
+  const weeks = Math.max(0, (new Date(end) - new Date(start)) / (7 * 24 * 3600 * 1000));
+  return DB.team.reduce((sum, m) => {
+    const uid  = m.user_id || m._id;
+    const hrs  = newProjLaborWorkers[uid] || 0;
+    const rate = m.hourlyRate || 0;
+    return sum + hrs * rate * weeks;
+  }, 0);
+}
+
+function calcModalLaborWeekly() {
+  return DB.team.reduce((sum, m) => {
+    const uid  = m.user_id || m._id;
+    const hrs  = newProjLaborWorkers[uid] || 0;
+    const rate = m.hourlyRate || 0;
+    return sum + hrs * rate;
+  }, 0);
+}
+
+function renderModalLaborRows() {
+  const assignedUids = Array.from(document.querySelectorAll('#np-workers-list input[type=checkbox]:checked')).map(cb => cb.dataset.uid);
+  const workers = DB.team.filter(m => {
+    const uid = m.user_id || m._id;
+    return assignedUids.length === 0 || assignedUids.includes(uid);
+  });
+  if (!workers.length) return '<div style="font-size:0.75rem;color:var(--muted);padding:0.3em 0.75em">Assign workers above to configure labor hours.</div>';
+  const start = document.getElementById('np-start')?.value;
+  const end   = document.getElementById('np-end')?.value;
+  const weeks = (start && end) ? Math.max(0, (new Date(end) - new Date(start)) / (7*24*3600*1000)) : 0;
+  const weeklyTotal = calcModalLaborWeekly();
+  const totalEst    = calcModalLaborEstimate();
+  return '<div style="background:rgba(26,109,232,0.04);border:1px solid rgba(26,109,232,0.12);border-radius:0.4em;padding:0.6em 0.75em;margin:0.15em 0 0.1em">' +
+    workers.map(m => {
+      const uid  = m.user_id || m._id;
+      const name = (m.firstName+' '+m.lastName).trim();
+      const rate = m.hourlyRate || 0;
+      const hrs  = newProjLaborWorkers[uid] || '';
+      const cost = (parseFloat(hrs)||0) * rate * weeks;
+      return '<div style="display:flex;align-items:center;gap:0.5em;padding:0.25em 0;font-size:0.8rem">' +
+        '<span style="flex:1;font-weight:500">' + name + '</span>' +
+        '<span style="color:var(--muted);font-size:0.72rem">$' + rate + '/hr</span>' +
+        '<input type="number" min="0" step="0.5" placeholder="hrs/wk" value="' + hrs + '" ' +
+          'style="width:5em;background:var(--surface);border:1px solid var(--border2);border-radius:0.35em;padding:0.25em 0.4em;font-size:0.78rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" ' +
+          'oninput="setLaborHours(\''+uid+'\',this.value)" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>' +
+        (cost > 0 ? '<span style="font-size:0.72rem;color:var(--blue-l);font-weight:600;min-width:3.5em;text-align:right">$'+fmt(cost)+'</span>' : '<span style="min-width:3.5em"></span>') +
+      '</div>';
+    }).join('') +
+    (weeklyTotal > 0 || totalEst > 0 ? '<div style="border-top:1px solid rgba(26,109,232,0.15);margin-top:0.35em;padding-top:0.35em;display:flex;justify-content:space-between;font-size:0.75rem;font-weight:600;color:var(--blue-l)">' +
+      '<span>' + (weeklyTotal > 0 ? '$'+fmt(weeklyTotal)+'/wk' : '') + '</span>' +
+      '<span>' + (totalEst > 0 ? '$'+fmt(totalEst)+' total est.' : (!start||!end?'Set dates to see total':'')) + '</span>' +
+    '</div>' : '') +
+  '</div>';
+}
+
 function renderCatChips() {
   const list = document.getElementById('np-cats-list');
   const totalPct = newProjCats.reduce((s,c) => s+(c.pct||0), 0);
+  // Calculate labor estimate for display
+  const laborTotal = calcModalLaborEstimate();
+  const laborWeekly = calcModalLaborWeekly();
+
   list.innerHTML =
-    // Always-first All chip
     '<div class="cat-chip cat-chip-all"><span style="font-size:0.8rem;font-weight:600">All</span><span style="font-size:0.72rem;color:var(--muted);margin-left:auto">Tracks total spend</span></div>' +
+    // Labor Estimate chip
+    '<div class="cat-chip" id="labor-chip" style="border-color:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.35)' : 'var(--border)') + ';background:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.07)' : 'var(--surface2)') + ';cursor:pointer" onclick="toggleLaborChip()">' +
+      '<span style="font-size:0.8rem;font-weight:600;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">Labor Estimate</span>' +
+      (newProjLaborEnabled && laborTotal > 0 ? '<span class="cat-chip-pct" style="margin-left:0.4em">$' + fmt(laborTotal) + ' est.</span>' : '') +
+      '<span style="margin-left:auto;font-size:0.7rem;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">' + (newProjLaborEnabled ? '✓ on' : 'off') + '</span>' +
+    '</div>' +
+    // Labor worker rows (only when enabled)
+    (newProjLaborEnabled ? renderModalLaborRows() : '') +
     newProjCats.map((c,i) =>
       '<div class="cat-chip">' +
         '<span class="cat-chip-name">' + c.name + '</span>' +
@@ -2450,8 +2647,10 @@ function saveNewProject() {
     startDate:       document.getElementById('np-start').value,
     endDate:         document.getElementById('np-end').value,
     color:           newProjColor,
-    categories:      newProjCats.map(c => c.name),
+    categories:      ['Labor Estimate', ...newProjCats.map(c => c.name)].filter((_,i) => i===0 ? newProjLaborEnabled : true),
     catBudgets:      Object.fromEntries(newProjCats.filter(c=>c.pct).map(c=>[c.name, c.pct])),
+    laborEnabled:    newProjLaborEnabled,
+    laborWorkers:    newProjLaborEnabled ? {...newProjLaborWorkers} : {},
     assignedWorkers: assignedWorkers,
   };
   DB.projects.push(proj);
