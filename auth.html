@@ -13,13 +13,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 (function() {
   try {
     const s = localStorage.getItem('forge_session');
-    if (s) {
-      const parsed = JSON.parse(s);
-      const hasToken = !!parsed?.access_token;
-      // expires_at is in seconds; if missing assume valid
-      const notExpired = !parsed?.expires_at || (parsed.expires_at * 1000) > Date.now();
-      if (hasToken && notExpired) window.location.replace('dashboard.html');
-    }
+    if (s && JSON.parse(s)?.access_token) window.location.replace('dashboard.html');
   } catch(e) {}
   if (window.location.hash === '#create') {
     window.addEventListener('DOMContentLoaded', () => showFlow('create-s1'));
@@ -400,7 +394,18 @@ async function submitCreate() {
     const company = Array.isArray(companies) ? companies[0] : companies;
     if (!company?.id) throw new Error('Company creation failed — please try again');
 
-    // 3. Save session + company_id so dashboard can find it immediately
+    // 3. Insert owner into team_members so they appear like everyone else
+    await sbPost('team_members', {
+      company_id: company.id,
+      first_name: companyData.firstName,
+      last_name:  companyData.lastName,
+      email:      companyData.email,
+      role:       'Admin',
+      user_id:    userId,
+      joined_at:  Date.now()
+    }, token);
+
+    // 4. Save session + company_id so dashboard can find it immediately
     localStorage.setItem('forge_session', JSON.stringify(auth));
     localStorage.setItem('forge_company_id', company.id);
     window.location.href = 'dashboard.html';
