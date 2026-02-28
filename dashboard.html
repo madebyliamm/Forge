@@ -234,6 +234,9 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .report-name { font-size: 0.9rem; font-weight: 700; }
 .report-desc { font-size: 0.75rem; color: var(--muted); margin-top: 0.15em; }
 .reports-grid { display: flex; flex-direction: column; gap: 0.75em; }
+.report-filter-btn { padding:0.4em 0.95em;border:1px solid var(--border);border-radius:0.45em;background:var(--surface2);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
+.report-filter-btn:hover { border-color:var(--border2);color:var(--text); }
+.report-filter-btn.active { background:var(--blue);border-color:var(--blue);color:#fff; }
 
 /* MODAL */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.18s; padding: 1rem; }
@@ -876,14 +879,19 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <!-- REPORTS -->
       <div class="view" id="view-reports">
         <div class="page-header">
-          <div class="page-title">Reports</div>
-          <div class="page-sub">Generate shareable report links to send directly to clients.</div>
+          <div><div class="page-title">Reports</div><div class="page-sub">Shareable project reports for clients.</div></div>
+        </div>
+        <div style="display:flex;gap:0.4em;margin-bottom:1.25em">
+          <button class="report-filter-btn active" data-filter="all" onclick="setReportFilter('all')">All</button>
+          <button class="report-filter-btn" data-filter="upcoming" onclick="setReportFilter('upcoming')">Upcoming</button>
+          <button class="report-filter-btn" data-filter="live" onclick="setReportFilter('live')">Live</button>
+          <button class="report-filter-btn" data-filter="completed" onclick="setReportFilter('completed')">Completed</button>
         </div>
         <div class="reports-grid" id="reportsGrid"></div>
         <div class="empty-state" id="reportsEmpty" style="display:none">
           <div class="empty-icon">📊</div>
-          <div class="empty-title">No projects to report on</div>
-          <div class="empty-sub">Create a project and log some transactions to generate your first report.</div>
+          <div class="empty-title">No projects found</div>
+          <div class="empty-sub">No projects match this filter.</div>
         </div>
       </div>
     </div>
@@ -2766,28 +2774,81 @@ function renderAlerts() {
 }
 
 // ══ REPORTS ══
+let reportFilter = 'all';
+
+function setReportFilter(f) {
+  reportFilter = f;
+  document.querySelectorAll('.report-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  renderReports();
+}
+
+function getProjectStatus(p) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  const start = p.startDate ? new Date(p.startDate+'T00:00:00') : null;
+  const end   = p.endDate   ? new Date(p.endDate+'T00:00:00')   : null;
+  if (start && start > now) return 'upcoming';
+  if (end && end < now)     return 'completed';
+  return 'live';
+}
+
 function renderReports() {
   const grid  = document.getElementById('reportsGrid');
   const empty = document.getElementById('reportsEmpty');
   if (!DB.projects.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
+  const filtered = DB.projects.map((p,i) => ({p,i})).filter(({p}) => reportFilter === 'all' || getProjectStatus(p) === reportFilter);
+  if (!filtered.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
   empty.style.display='none';
-  grid.innerHTML = DB.projects.map((p,i) => {
-    const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
+  grid.innerHTML = filtered.map(({p,i}) => {
+    const pus   = DB.purchases.filter(x=>x.projectIdx===i);
+    const spent = spentFromPurchases(pus);
     const pct   = p.budget>0?Math.round(spent/p.budget*100):0;
-    return '<div class="report-card" onclick="window.open(getReportURL('+i+'),\'_blank\')"><div class="report-icon" style="background:'+p.color+'22"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="'+p.color+'" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="'+p.color+'" stroke-width="1.3" stroke-linecap="round"/></svg></div><div class="report-info"><div class="report-name">'+p.name+'</div><div class="report-desc">$'+fmt(spent)+' spent · '+pct+'% of budget · '+DB.purchases.filter(x=>x.projectIdx===i).length+' purchases</div></div><button class="tb-btn primary" style="font-size:0.75rem;padding:0.3em 0.7em;flex-shrink:0" onclick="event.stopPropagation();exportReport('+i+')">Share</button></div>';
+    const status = getProjectStatus(p);
+    const statusColor = status==='live'?'var(--green)':status==='upcoming'?'var(--blue)':'var(--muted)';
+    const statusLabel = status==='live'?'Live':status==='upcoming'?'Upcoming':'Completed';
+    // Days duration
+    let daysStr = '';
+    if (p.startDate && p.endDate) {
+      const days = Math.round((new Date(p.endDate+'T00:00:00') - new Date(p.startDate+'T00:00:00'))/(1000*86400));
+      daysStr = days + ' day' + (days!==1?'s':'');
+    }
+    const barColor = pct>100?'var(--red)':pct>80?'#f5a623':'var(--green)';
+    return '<div class="report-card" onclick="window.open(getReportURL('+i+'),\'_blank\')">'+
+      '<div style="display:flex;align-items:center;gap:0.9em">'+
+        '<div style="width:38px;height:38px;border-radius:0.5em;background:'+p.color+'22;display:grid;place-items:center;flex-shrink:0">'+
+          '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="'+p.color+'" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="'+p.color+'" stroke-width="1.3" stroke-linecap="round"/></svg>'+
+        '</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="display:flex;align-items:center;gap:0.5em;margin-bottom:0.15em">'+
+            '<div class="report-name">'+p.name+'</div>'+
+            '<span style="font-size:0.65rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:'+statusColor+'">'+statusLabel+'</span>'+
+          '</div>'+
+          '<div class="report-desc">'+
+            '$'+fmt(spent)+' spent · '+pct+'% of budget'+(daysStr?' · '+daysStr:'')+
+          '</div>'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4em;flex-shrink:0">'+
+          '<button class="tb-btn primary" style="font-size:0.75rem;padding:0.3em 0.75em" onclick="event.stopPropagation();exportReport('+i+')">Share</button>'+
+        '</div>'+
+      '</div>'+
+      '<div style="margin-top:0.85em;height:4px;border-radius:2px;background:var(--surface3);overflow:hidden">'+
+        '<div style="height:100%;width:'+Math.min(100,pct)+'%;background:'+barColor+';border-radius:2px"></div>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 
 function getReportURL(idx) {
   const p   = DB.projects[idx];
-  const pus = DB.purchases.filter(x=>x.projectIdx===idx);
+  // Only include expenses (not income) for client reports
+  const pus = DB.purchases.filter(x=>x.projectIdx===idx && x.type!=='income');
   const data = {
     project: p,
     purchases: pus,
     companyName: DB.companyName || '',
     generatedAt: Date.now(),
   };
-  const hash = btoa(JSON.stringify(data));
+  // btoa fails on non-latin chars — use encodeURIComponent safe encoding
+  const hash = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
   return window.location.origin + window.location.pathname.replace('dashboard.html','') + 'reports.html#' + hash;
 }
 
