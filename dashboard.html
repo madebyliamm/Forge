@@ -884,7 +884,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         <div style="display:flex;gap:0.4em;margin-bottom:1.25em">
           <button class="report-filter-btn active" data-filter="all" onclick="setReportFilter('all')">All</button>
           <button class="report-filter-btn" data-filter="upcoming" onclick="setReportFilter('upcoming')">Upcoming</button>
-          <button class="report-filter-btn" data-filter="live" onclick="setReportFilter('live')">Live</button>
+          <button class="report-filter-btn" data-filter="in-progress" onclick="setReportFilter('in-progress')">In Progress</button>
           <button class="report-filter-btn" data-filter="completed" onclick="setReportFilter('completed')">Completed</button>
         </div>
         <div class="reports-grid" id="reportsGrid"></div>
@@ -2788,7 +2788,7 @@ function getProjectStatus(p) {
   const end   = p.endDate   ? new Date(p.endDate+'T00:00:00')   : null;
   if (start && start > now) return 'upcoming';
   if (end && end < now)     return 'completed';
-  return 'live';
+  return 'in-progress';
 }
 
 function renderReports() {
@@ -2803,8 +2803,8 @@ function renderReports() {
     const spent = spentFromPurchases(pus);
     const pct   = p.budget>0?Math.round(spent/p.budget*100):0;
     const status = getProjectStatus(p);
-    const statusColor = status==='live'?'var(--green)':status==='upcoming'?'var(--blue)':'var(--muted)';
-    const statusLabel = status==='live'?'Live':status==='upcoming'?'Upcoming':'Completed';
+    const statusColor = status==='in-progress'?'var(--green)':status==='upcoming'?'var(--blue)':'var(--muted)';
+    const statusLabel = status==='live'?'In Progress':status==='upcoming'?'Upcoming':'Completed';
     // Days duration
     let daysStr = '';
     if (p.startDate && p.endDate) {
