@@ -1341,7 +1341,7 @@ async function loadFromSupabase() {
       purchases: purchases.map(pu => {
         const projectIdx = projects.findIndex(p => p.id === pu.project_id);
         return {
-          _id: pu.id, vendor: pu.vendor, amount: pu.amount, type: pu.type || (pu.amount >= 0 ? 'income' : 'expense'),
+          _id: pu.id, vendor: pu.vendor, amount: Math.abs(pu.amount), type: pu.type || 'expense',
           category: pu.category, date: pu.date, notes: pu.notes,
           worker: pu.worker, ts: pu.ts, projectIdx
         };
@@ -1722,7 +1722,7 @@ function renderProjectDetail(idx) {
     return '<tr class="pu-row" onclick="openPurchaseDetail('+gi+')" title="Click for details">'+
       '<td><strong>'+pu.vendor+'</strong></td>'+
       '<td><span class="tag tag-blue">'+(pu.category||'—')+'</span></td>'+
-      '<td><strong style="color:'+((!pu.type&&pu.amount>=0)||pu.type==='income'?'#22c55e':'var(--red)')+'">'+((!pu.type&&pu.amount>=0)||pu.type==='income'?'+':'-')+'$'+fmt(Math.abs(pu.amount))+'</strong></td>'+
+      '<td><strong style="color:'+(pu.type==='income'?'#22c55e':'var(--red)')+'">'+(pu.type==='income'?'+':'-')+'$'+fmt(Math.abs(pu.amount))+'</strong></td>'+
       '<td style="color:var(--text2)">'+(pu.worker||'—')+'</td>'+
       '<td style="color:var(--muted)">'+fmtDate(pu.date)+'</td>'+
     '</tr>';
@@ -1732,8 +1732,8 @@ function renderProjectDetail(idx) {
 // ══ ALL PURCHASES ══
 // Helper: signed amount (negative=expense, positive=income)
 function txAmount(pu) { return pu.amount; } // already signed
-function spentFromPurchases(pus) { return pus.reduce((s,x) => s + (x.amount < 0 ? Math.abs(x.amount) : 0), 0); }
-function incomeFromPurchases(pus) { return pus.reduce((s,x) => s + (x.amount > 0 ? x.amount : 0), 0); }
+function spentFromPurchases(pus) { return pus.reduce((s,x) => s + (x.type === 'income' ? 0 : Math.abs(x.amount)), 0); }
+function incomeFromPurchases(pus) { return pus.reduce((s,x) => s + (x.type === 'income' ? Math.abs(x.amount) : 0), 0); }
 
 function renderAllPurchases() {
   const tbody = document.getElementById('allPurchasesTable');
@@ -2409,9 +2409,8 @@ function saveQuickPurchase() {
   const amount = parseFloat(document.getElementById('qpu-amount').value);
   if (!vendor || isNaN(amount) || amount <= 0) { document.getElementById(!vendor?'qpu-vendor':'qpu-amount').focus(); return; }
   const me = ((DB.firstName||'')+' '+(DB.lastName||'')).trim() || 'Admin';
-  const signedAmount = txType['qpu'] === 'income' ? Math.abs(amount) : -Math.abs(amount);
   const pu = {
-    vendor, amount: signedAmount,
+    vendor, amount: Math.abs(amount),
     type: txType['qpu'],
     projectIdx: activeProject,
     category:   document.getElementById('qpu-category').value,
@@ -2450,8 +2449,7 @@ function saveNewPurchase() {
   const vendor = document.getElementById('pu-vendor').value.trim();
   const amount = parseFloat(document.getElementById('pu-amount').value);
   if (!vendor||isNaN(amount)||amount<=0) { document.getElementById(!vendor?'pu-vendor':'pu-amount').focus(); return; }
-  const signedAmount2 = txType['pu'] === 'income' ? Math.abs(amount) : -Math.abs(amount);
-  const pu2 = { vendor, amount: signedAmount2, type: txType['pu'], projectIdx:parseInt(document.getElementById('pu-project').value), category:document.getElementById('pu-category').value, date:document.getElementById('pu-date').value, worker:document.getElementById('pu-worker').value, notes:document.getElementById('pu-notes').value.trim(), ts:Date.now() };
+  const pu2 = { vendor, amount: Math.abs(amount), type: txType['pu'], projectIdx:parseInt(document.getElementById('pu-project').value), category:document.getElementById('pu-category').value, date:document.getElementById('pu-date').value, worker:document.getElementById('pu-worker').value, notes:document.getElementById('pu-notes').value.trim(), ts:Date.now() };
   DB.purchases.push(pu2);
   const pu2Idx = DB.purchases.length - 1;
   ['pu-vendor','pu-amount','pu-notes'].forEach(id=>document.getElementById(id).value='');
@@ -2467,7 +2465,7 @@ let activePurchaseIdx = null;
 function openPurchaseDetail(globalIdx) {
   activePurchaseIdx = globalIdx;
   const pu = DB.purchases[globalIdx];
-  const pdType = pu.type || (pu.amount >= 0 ? 'income' : 'expense');
+  const pdType = pu.type || 'expense';
   const pdAmtEl = document.getElementById('pd-amount');
   pdAmtEl.textContent = (pdType === 'income' ? '+' : '-') + '$' + fmt(Math.abs(pu.amount));
   pdAmtEl.style.color = pdType === 'income' ? '#22c55e' : 'var(--red)';
