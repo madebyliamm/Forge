@@ -1894,21 +1894,16 @@ function renderTeam() {
   const teamDotBtn = document.getElementById('teamDotBtn');
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
   const currentUid = getSession()?.user?.id;
-  // youEntry is always built from session data — same pattern for admin and worker
-  const youEntry = {
-    _id: null,
-    firstName: DB.firstName || '',
-    lastName: DB.lastName || '',
-    email: '',
-    role: isPrimaryAdmin ? 'owner' : (DB.role || 'worker'),
-    isOwner: isPrimaryAdmin,
-    isYou: true,
-    user_id: currentUid
+  // Owner card — always built from DB (company creator, never in team_members)
+  const ownerEntry = {
+    _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
+    email: '', role: 'owner', isOwner: true, isYou: isPrimaryAdmin, user_id: isPrimaryAdmin ? currentUid : null
   };
-  // DB.team never contains the admin (they own the company, not a member row)
-  // DB.team MAY contain the worker's own row — filter it out to avoid duplication
-  const otherMembers = DB.team.filter(m => m.user_id !== currentUid);
-  const fullTeam = [youEntry, ...otherMembers].sort((a, b) => {
+  // For workers: mark their own DB.team row as isYou, keep everyone else as-is
+  const teamWithYou = DB.team.map(m =>
+    (m.user_id && m.user_id === currentUid) ? { ...m, isYou: true } : m
+  );
+  const fullTeam = [ownerEntry, ...teamWithYou].sort((a, b) => {
     const la = (a.lastName || '').trim().toLowerCase();
     const lb = (b.lastName || '').trim().toLowerCase();
     if (!la && !lb) return 0;
