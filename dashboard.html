@@ -2305,6 +2305,10 @@ function renderSubs() {
   if (!grid) return;
   const isAdmin = DB.role === 'admin';
   if (addBtn) addBtn.style.display = isAdmin ? '' : 'none';
+  // Workers don't see subcontractor section at all (financial/contract info)
+  const subSection = document.getElementById('subSection');
+  if (subSection) subSection.style.display = isAdmin ? '' : 'none';
+  if (!isAdmin) return;
   const subs = DB.subs || [];
   if (!subs.length) {
     grid.innerHTML = '';
@@ -2365,6 +2369,7 @@ function saveNewSub() {
 }
 
 function openSubDetail(idx) {
+  if (DB.role !== 'admin') return;
   currentSubIdx = idx;
   const s = DB.subs[idx];
   document.getElementById('subDetailName').textContent = s.name;
@@ -2430,7 +2435,28 @@ function addSubProjectEntry() {
 }
 
 function removeSubProject(subIdx, entryIdx) {
-  const s = DB.subs[subIdx];
+  const s     = DB.subs[subIdx];
+  const entry = s.projects[entryIdx];
+  // Delete the matching subcontractor transaction from this project
+  if (entry) {
+    const vendorName = s.name + (s.trade ? ' ('+s.trade+')' : '');
+    const txIdx = DB.purchases.findIndex(p =>
+      p.projectIdx === entry.projIdx &&
+      p.vendor === vendorName &&
+      p.category === 'Subcontractors' &&
+      p.amount === entry.contractAmt
+    );
+    if (txIdx >= 0) {
+      const tx = DB.purchases[txIdx];
+      if (tx._id) {
+        fetch(SB_URL+'/rest/v1/purchases?id=eq.'+tx._id, {
+          method:'DELETE',
+          headers:{apikey:SB_KEY,Authorization:'Bearer '+getSession()?.access_token,'Content-Type':'application/json'}
+        }).catch(console.error);
+      }
+      DB.purchases.splice(txIdx, 1);
+    }
+  }
   s.projects.splice(entryIdx, 1);
   sbSaveSub(s, subIdx).catch(console.error);
   renderSubProjectList(subIdx);
