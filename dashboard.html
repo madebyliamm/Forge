@@ -303,9 +303,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <div class="field"><label>Client name</label><input type="text" id="np-client" placeholder="John Smith"/></div>
       <div class="field"><label>Location</label><input type="text" id="np-location" placeholder="123 Oak St, Denver CO"/></div>
     </div>
-    <div class="modal-row">
-      <div class="field"><label>Total budget ($)</label><input type="number" id="np-budget" placeholder="50000" min="0"/></div>
-    </div>
+    <div class="field"><label>Total budget ($)</label><input type="number" id="np-budget" placeholder="50000" min="0"/></div>
     <div class="modal-row">
       <div class="field"><label>Start date</label><input type="date" id="np-start" style="resize:none"/></div>
       <div class="field"><label>End date</label><input type="date" id="np-end" style="resize:none"/></div>
@@ -2473,17 +2471,7 @@ function resetProjectModal() {
   const npWorkersList = document.getElementById('np-workers-list');
   const npWorkersField = document.getElementById('np-workers-field');
   if (npWorkersList) {
-    if (DB.team.length === 0) {
-      npWorkersField.style.display = 'none';
-    } else {
-      npWorkersField.style.display = '';
-      npWorkersList.innerHTML = DB.team.map(m => {
-        const uid = m.user_id || m._id;
-        const name = (m.firstName+' '+m.lastName).trim();
-        return '<label style="display:flex;align-items:center;gap:0.6em;font-size:0.85rem;cursor:pointer;padding:0.3em 0">' +
-          '<input type="checkbox" data-uid="'+uid+'" style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> '+name+'</label>';
-      }).join('');
-    }
+      renderModalWorkersList();
   }
   ['np-name','np-budget','np-client','np-location','np-start','np-end','np-cat-name','np-cat-pct'].forEach(id => {
     const el = document.getElementById(id);
@@ -2499,12 +2487,64 @@ function resetProjectModal() {
 
 function toggleLaborChip() {
   newProjLaborEnabled = !newProjLaborEnabled;
+  renderModalWorkersList();
   renderCatChips();
 }
 
 function setLaborHours(uid, val) {
   newProjLaborWorkers[uid] = parseFloat(val) || 0;
-  renderCatChips();
+  // Update totals display without re-rendering the whole list (avoids losing focus)
+  updateLaborTotals();
+}
+
+function updateLaborTotals() {
+  const totalEl  = document.getElementById('np-labor-total');
+  const weeklyEl = document.getElementById('np-labor-weekly');
+  if (!totalEl && !weeklyEl) return;
+  const total  = calcModalLaborEstimate();
+  const weekly = calcModalLaborWeekly();
+  if (totalEl)  totalEl.textContent  = total  > 0 ? '$'+fmt(total)+' total est.'  : '';
+  if (weeklyEl) weeklyEl.textContent = weekly > 0 ? '$'+fmt(weekly)+'/wk' : '';
+  // Also update labor chip label in cat list
+  const chip = document.getElementById('labor-chip');
+  if (chip) {
+    const badge = chip.querySelector('.cat-chip-pct');
+    if (badge) badge.textContent = total > 0 ? '$'+fmt(total)+' est.' : '';
+  }
+}
+
+function renderModalWorkersList() {
+  const npWorkersList  = document.getElementById('np-workers-list');
+  const npWorkersField = document.getElementById('np-workers-field');
+  if (!npWorkersList) return;
+  // Only show workers (not admins)
+  const workers = DB.team.filter(m => (m.role||'').toLowerCase() !== 'admin');
+  if (!workers.length) { npWorkersField.style.display = 'none'; return; }
+  npWorkersField.style.display = '';
+  npWorkersList.innerHTML = workers.map(m => {
+    const uid  = m.user_id || m._id;
+    const name = (m.firstName+' '+m.lastName).trim();
+    const rate = m.hourlyRate || 0;
+    const hrs  = newProjLaborWorkers[uid] || '';
+    return '<label style="display:flex;align-items:center;gap:0.6em;font-size:0.85rem;cursor:pointer;padding:0.3em 0" onclick="event.stopPropagation()">' +
+      '<input type="checkbox" data-uid="'+uid+'" onchange="onWorkerCheck()" style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> ' +
+      '<span style="flex:1">'+name+'</span>' +
+      (newProjLaborEnabled
+        ? '<input type="number" id="labor-hrs-'+uid+'" min="0" step="0.5" placeholder="hrs/wk" value="'+hrs+'" ' +
+          'style="width:5em;background:var(--surface2);border:1px solid var(--border2);border-radius:0.35em;padding:0.25em 0.45em;font-size:0.78rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" ' +
+          'oninput="setLaborHours(\''+uid+'\',this.value)" onclick="event.stopPropagation()" ' +
+          'onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>'
+        : '') +
+      (rate > 0 && newProjLaborEnabled ? '<span style="font-size:0.7rem;color:var(--muted)">$'+rate+'/hr</span>' : '') +
+    '</label>';
+  }).join('') +
+  (newProjLaborEnabled ? '<div style="display:flex;justify-content:space-between;font-size:0.73rem;font-weight:600;color:var(--blue-l);margin-top:0.4em;padding-top:0.35em;border-top:1px solid rgba(26,109,232,0.12)">' +
+    '<span id="np-labor-weekly"></span><span id="np-labor-total"></span></div>' : '');
+}
+
+function onWorkerCheck() {
+  // Re-render to update which workers show hrs/wk
+  renderModalWorkersList();
 }
 
 function calcModalLaborEstimate() {
@@ -2580,7 +2620,7 @@ function renderCatChips() {
       '<span style="margin-left:auto;font-size:0.7rem;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">' + (newProjLaborEnabled ? '✓ on' : 'off') + '</span>' +
     '</div>' +
     // Labor worker rows (only when enabled)
-    (newProjLaborEnabled ? renderModalLaborRows() : '') +
+
     newProjCats.map((c,i) =>
       '<div class="cat-chip">' +
         '<span class="cat-chip-name">' + c.name + '</span>' +
