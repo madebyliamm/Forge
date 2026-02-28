@@ -1433,7 +1433,7 @@ function computeAlerts() {
     }
 
     (p.categories||[]).forEach(cat => {
-      const catSpent = pus.filter(x => x.category === cat).reduce((s,x) => s + x.amount, 0);
+      const catSpent = spentFromPurchases(pus.filter(x => x.category === cat));
       const share = p.budget > 0 ? catSpent / p.budget : 0;
       if (share >= 0.4 && catSpent > 1000) {
         alerts.push({ severity:'medium', title:'High '+cat+' spending on '+p.name, desc:'$'+fmt(catSpent)+' spent on '+cat+' — '+Math.round(share*100)+'% of total project budget.', projectIdx:idx });
@@ -1568,7 +1568,7 @@ function updateTopbar() {
 // ══ DASHBOARD ══
 function renderDashboard() {
   const totalBudget = DB.projects.reduce((s,p)=>s+(p.budget||0),0);
-  const totalSpent  = DB.purchases.reduce((s,p)=>s+(p.amount||0),0);
+  const totalSpent  = spentFromPurchases(DB.purchases);
   const remaining   = totalBudget - totalSpent;
   const pct         = totalBudget>0 ? Math.round(totalSpent/totalBudget*100) : 0;
   const atRisk      = DB.projects.filter((p,i) => { const sp=spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i)); return p.budget>0 && sp/p.budget>=0.7; }).length;
@@ -1643,7 +1643,7 @@ function renderDashboard() {
 function renderProjectDetail(idx) {
   const p   = DB.projects[idx];
   const pus = DB.purchases.filter(x=>x.projectIdx===idx);
-  const spent = pus.reduce((s,x)=>s+x.amount,0);
+  const spent = spentFromPurchases(pus);
   const rem   = p.budget - spent;
   const pct   = p.budget>0 ? Math.round(spent/p.budget*100) : 0;
   const bc    = pct>90?'var(--red)':pct>70?'var(--orange)':'var(--green)';
@@ -1693,7 +1693,7 @@ function renderProjectDetail(idx) {
   // Budget section with Edit Categories button
   const cats = p.categories||[];
   const catHTML = cats.length ? '<div style="margin-top:1.2em"><div class="section-title" style="margin-bottom:0.75em">By Category</div><div class="cat-rows">'+cats.map(cat=>{
-    const cs  = pus.filter(x=>x.category===cat).reduce((s,x)=>s+x.amount,0);
+    const cs  = spentFromPurchases(pus.filter(x=>x.category===cat));
     const cp  = p.budget>0?Math.round(cs/p.budget*100):0;
     const alloc = p.catBudgets && p.catBudgets[cat] ? p.catBudgets[cat] : null;
     const allocLabel = alloc ? ' <span style="font-size:0.65rem;color:var(--muted)">of '+alloc+'% budgeted</span>' : '';
