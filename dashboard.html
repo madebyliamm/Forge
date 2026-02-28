@@ -1306,8 +1306,8 @@ async function loadFromSupabase() {
       role:        isWorker ? 'worker' : 'admin',
       // For workers: load the actual admin's name from their team_members row (owner has owner_id on company)
       // We find the admin by looking for the team_members row where user_id = co.owner_id
-      adminFirstName: isWorker ? (team.find(m => m.user_id === co.owner_id)?.first_name || 'Admin') : (meta.first_name || 'Admin'),
-      adminLastName:  isWorker ? (team.find(m => m.user_id === co.owner_id)?.last_name  || '')      : (meta.last_name  || ''),
+      adminFirstName: isWorker ? (co.owner_first_name || 'Admin') : (meta.first_name || 'Admin'),
+      adminLastName:  isWorker ? (co.owner_last_name  || '')      : (meta.last_name  || ''),
       projects: projects.map(p => ({
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
@@ -1850,7 +1850,8 @@ async function saveCompanySettings() {
   // Persist to Supabase
   try {
     await sbPatch('companies', 'id=eq.'+COMPANY_ID, {
-      name, plan, worker_count: workers, logo_url: logoUrl
+      name, plan, worker_count: workers, logo_url: logoUrl,
+      owner_first_name: first, owner_last_name: last
     });
   } catch(e) {
     console.error('Save company failed:', e);
@@ -2770,6 +2771,10 @@ async function saveProfile() {
       }).catch(() => {}); // non-fatal — not all users have a team_members row yet
     }
 
+    // Update companies table with new owner name so workers see it
+    if (isPrimaryAdmin || DB.role === 'admin') {
+      sbPatch('companies', 'id=eq.'+COMPANY_ID, { owner_first_name: first, owner_last_name: last }).catch(console.error);
+    }
     // Update in-memory DB
     DB.firstName   = first;
     DB.lastName    = last;
