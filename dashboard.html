@@ -8,6 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
 :root {
   --bg:        #07090e;
   --surface:   #0d1117;
@@ -2743,11 +2746,18 @@ function renderCatChips() {
     '<div class="cat-chip" id="labor-chip" style="border-color:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.35)' : 'var(--border)') + ';background:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.07)' : 'var(--surface2)') + ';cursor:pointer" onclick="toggleLaborChip()">' +
       '<span style="font-size:0.8rem;font-weight:600;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">Labor Estimate</span>' +
       (newProjLaborEnabled && laborTotal > 0 ? '<span class="cat-chip-pct" style="margin-left:0.4em">$' + fmt(laborTotal) + ' est.</span>' : '') +
-      (newProjLaborEnabled ? ' <span style="margin-left:0.3em;font-size:0.7rem;color:var(--muted)" onclick="event.stopPropagation()">budget: <input type="number" id="np-labor-pct" min="1" max="100" placeholder="%" value="' + (newProjLaborPct||'') + '" style="width:3em;background:var(--surface);border:1px solid var(--border2);border-radius:0.3em;padding:0.15em 0.3em;font-size:0.72rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" oninput="newProjLaborPct=parseInt(this.value)||null" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>%</span>' : '') +
+      '' +
       '<span style="margin-left:auto;font-size:0.7rem;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">' + (newProjLaborEnabled ? '✓ on' : 'off') + '</span>' +
     '</div>' +
-    // Labor worker rows (only when enabled)
-
+    (newProjLaborEnabled ?
+      '<div style="display:flex;align-items:center;gap:0.6em;padding:0.5em 0.3em 0.2em" onclick="event.stopPropagation()">' +
+        '<label style="font-size:0.78rem;font-weight:600;color:var(--text2);white-space:nowrap">Budget %</label>' +
+        '<input type="number" id="np-labor-pct" min="1" max="100" placeholder="No limit" value="' + (newProjLaborPct||'') + '" ' +
+          'style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.85rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none" ' +
+          'oninput="newProjLaborPct=parseInt(this.value)||null" onclick="event.stopPropagation()" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>' +
+        '<span style="font-size:0.82rem;color:var(--muted)">%</span>' +
+      '</div>'
+    : '') +
     newProjCats.map((c,i) =>
       '<div class="cat-chip">' +
         '<span class="cat-chip-name">' + c.name + '</span>' +
@@ -2826,7 +2836,9 @@ function saveNewProject() {
   resetProjectModal();
   renderAll();
   // Await so _id is set before any purchase saves reference this project
-  sbSaveProject(proj, idx).catch(e => { console.error('Project save failed:', e); showToast('Failed to save project'); });
+  sbSaveProject(proj, idx).then(() => {
+    if (proj.laborEnabled) upsertLaborTransaction(idx);
+  }).catch(e => { console.error('Project save failed:', e); showToast('Failed to save project'); });
 }
 
 // ══ ASSIGN WORKERS ══
