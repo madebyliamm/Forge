@@ -382,17 +382,15 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 <div class="modal-bg" id="newPurchaseModal">
   <div class="modal">
     <div class="modal-head"><div class="modal-title">Add Transaction</div><button class="modal-close" onclick="closeModal('newPurchaseModal')">✕</button></div>
-    <div class="modal-row">
-      <div class="field"><label>Vendor / Description</label><input type="text" id="pu-vendor" placeholder="Home Depot"/></div>
-      <div class="field" style="grid-column:1/-1">
-        <label>Amount ($)</label>
-        <div style="display:flex;gap:0.6em;align-items:center">
-          <div class="type-toggle" id="pu-type-toggle">
-            <button id="pu-btn-expense" class="active-expense" onclick="setTxType('pu','expense')">−</button>
-            <button id="pu-btn-income" onclick="setTxType('pu','income')">+</button>
-          </div>
-          <input type="number" id="pu-amount" placeholder="0.00" min="0" step="0.01" style="flex:1"/>
+    <div class="field"><label>Vendor / Description</label><input type="text" id="pu-vendor" placeholder="Home Depot"/></div>
+    <div class="field">
+      <label>Amount ($)</label>
+      <div style="display:flex;gap:0.6em;align-items:center">
+        <div class="type-toggle" id="pu-type-toggle">
+          <button id="pu-btn-expense" class="active-expense" onclick="setTxType('pu','expense')">−</button>
+          <button id="pu-btn-income" onclick="setTxType('pu','income')">+</button>
         </div>
+        <input type="number" id="pu-amount" placeholder="0.00" min="0" step="0.01" style="flex:1"/>
       </div>
     </div>
     <div class="modal-row">
@@ -1573,7 +1571,7 @@ function renderDashboard() {
   const totalSpent  = DB.purchases.reduce((s,p)=>s+(p.amount||0),0);
   const remaining   = totalBudget - totalSpent;
   const pct         = totalBudget>0 ? Math.round(totalSpent/totalBudget*100) : 0;
-  const atRisk      = DB.projects.filter((p,i) => { const sp=DB.purchases.filter(x=>x.projectIdx===i).reduce((s,x)=>s+x.amount,0); return p.budget>0 && sp/p.budget>=0.7; }).length;
+  const atRisk      = DB.projects.filter((p,i) => { const sp=spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i)); return p.budget>0 && sp/p.budget>=0.7; }).length;
 
   const statColor = pct>90?'s-red':pct>70?'s-orange':'s-green';
   const totalRevenue = incomeFromPurchases(DB.purchases);
@@ -2370,6 +2368,26 @@ function setTxType(prefix, type) {
   const incBtn = document.getElementById(prefix+'-btn-income');
   if (expBtn) { expBtn.className = type === 'expense' ? 'active-expense' : ''; }
   if (incBtn) { incBtn.className = type === 'income'  ? 'active-income'  : ''; }
+  // Lock category to Revenue for income; restore select for expense
+  const catMap = { qpu: 'qpu-category', pu: 'pu-category', pd: 'pd-edit-category' };
+  const catEl = document.getElementById(catMap[prefix]);
+  if (catEl) {
+    if (type === 'income') {
+      catEl.innerHTML = '<option value="Revenue">Revenue</option>';
+      catEl.disabled = true;
+      catEl.style.opacity = '0.5';
+    } else {
+      catEl.disabled = false;
+      catEl.style.opacity = '';
+      // Re-trigger the normal category population
+      if (prefix === 'qpu' && typeof activeProject !== 'undefined' && activeProject !== null) {
+        const cats = (DB.projects[activeProject] && DB.projects[activeProject].categories) || [];
+        catEl.innerHTML = (cats.length ? cats : ['General']).map(c=>'<option>'+c+'</option>').join('');
+      } else if (prefix === 'pu') {
+        updatePurchaseCats();
+      }
+    }
+  }
 }
 function resetTxType(prefix) { setTxType(prefix, 'expense'); }
 
