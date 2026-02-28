@@ -1304,6 +1304,10 @@ async function loadFromSupabase() {
       avatarImage: meta.avatar_image  || null,
       lastName:    meta.last_name  || '',
       role:        isWorker ? 'worker' : 'admin',
+      // For workers: load the actual admin's name from their team_members row (owner has owner_id on company)
+      // We find the admin by looking for the team_members row where user_id = co.owner_id
+      adminFirstName: isWorker ? (team.find(m => m.user_id === co.owner_id)?.first_name || 'Admin') : (meta.first_name || 'Admin'),
+      adminLastName:  isWorker ? (team.find(m => m.user_id === co.owner_id)?.last_name  || '')      : (meta.last_name  || ''),
       projects: projects.map(p => ({
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
@@ -1895,7 +1899,9 @@ function renderTeam() {
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
   const currentUid = getSession()?.user?.id;
   const ownerEntry = {
-    _id: null, firstName: DB.firstName || 'Admin', lastName: DB.lastName || '',
+    _id: null,
+    firstName: DB.adminFirstName || 'Admin',
+    lastName:  DB.adminLastName  || '',
     email: '', role: 'owner', isOwner: true, isYou: isPrimaryAdmin, user_id: null
   };
   const fullTeam = [ownerEntry, ...DB.team].sort((a, b) => {
