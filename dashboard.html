@@ -800,16 +800,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         <label>Company name</label>
         <input type="text" id="cs-name" placeholder="Acme Construction"/>
       </div>
-      <div class="modal-row" style="margin:0">
-        <div class="field" style="margin:0">
-          <label>Your first name</label>
-          <input type="text" id="cs-first" placeholder="Liam"/>
-        </div>
-        <div class="field" style="margin:0">
-          <label>Your last name</label>
-          <input type="text" id="cs-last" placeholder="Smith"/>
-        </div>
-      </div>
+
       <div class="field" style="margin:0">
         <label>Plan</label>
         <select id="cs-plan">
@@ -1742,8 +1733,6 @@ function previewLogo(input) {
 function openCompanySettingsModal() {
   // Populate fields
   document.getElementById('cs-name').value    = DB.companyName || '';
-  document.getElementById('cs-first').value   = DB.firstName   || '';
-  document.getElementById('cs-last').value    = DB.lastName    || '';
   document.getElementById('cs-plan').value    = DB.plan        || 'starter';
   // Logo preview
   const preview = document.getElementById('cs-logo-preview');
@@ -1787,8 +1776,7 @@ function openCompanyInfo() {
 
 async function saveCompanySettings() {
   const name    = document.getElementById('cs-name').value.trim();
-  const first   = document.getElementById('cs-first').value.trim();
-  const last    = document.getElementById('cs-last').value.trim();
+
   const workers = DB.team.length + 1; // actual member count, not user-entered
   const plan    = document.getElementById('cs-plan').value;
   if (!name) { document.getElementById('cs-name').focus(); return; }
@@ -1834,8 +1822,6 @@ async function saveCompanySettings() {
 
   // Update local DB
   DB.companyName  = name;
-  DB.firstName    = first;
-  DB.lastName     = last;
   DB.workerCount  = workers;
   DB.plan         = plan;
   DB.logoUrl      = logoUrl;
@@ -1843,14 +1829,13 @@ async function saveCompanySettings() {
   // Update UI immediately
   document.getElementById('sidebarCompany').textContent = name;
   document.getElementById('sidebarPlan').textContent = plan.charAt(0).toUpperCase()+plan.slice(1)+' Plan · '+workers+' workers';
-  document.getElementById('userName').textContent = (first+' '+last).trim() || name;
+  document.getElementById('userName').textContent = (DB.firstName+' '+DB.lastName).trim() || name;
   updateCompanyLogo();
 
   // Persist to Supabase
   try {
     await sbPatch('companies', 'id=eq.'+COMPANY_ID, {
-      name, plan, worker_count: workers, logo_url: logoUrl,
-      owner_first_name: first, owner_last_name: last
+      name, plan, worker_count: workers, logo_url: logoUrl
     });
   } catch(e) {
     console.error('Save company failed:', e);
@@ -2764,10 +2749,6 @@ async function saveProfile() {
       }).catch(() => {}); // non-fatal — not all users have a team_members row yet
     }
 
-    // Update companies table with new owner name so workers see it
-    if (isPrimaryAdmin || DB.role === 'admin') {
-      sbPatch('companies', 'id=eq.'+COMPANY_ID, { owner_first_name: first, owner_last_name: last }).catch(console.error);
-    }
     // Update in-memory DB
     DB.firstName   = first;
     DB.lastName    = last;
