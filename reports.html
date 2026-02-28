@@ -102,8 +102,7 @@ html, body { min-height:100vh; background:var(--bg); color:var(--text); font-fam
 .tx-detail-item strong { color:var(--text);display:block;margin-bottom:0.1em;font-size:0.75rem; }
 
 /* DOWNLOAD BTN */
-.download-bar { display:flex;justify-content:flex-end;margin-bottom:1.5em; }
-.download-btn { display:inline-flex;align-items:center;gap:0.5em;padding:0.55em 1.1em;background:var(--blue);color:#fff;border:none;border-radius:0.5em;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s; }
+.download-btn { display:inline-flex;align-items:center;gap:0.45em;padding:0.42em 0.9em;background:var(--blue);color:#fff;border:none;border-radius:0.45em;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s;white-space:nowrap; }
 .download-btn:hover { opacity:0.85; }
 .download-btn svg { flex-shrink:0; }
 
@@ -118,7 +117,7 @@ html, body { min-height:100vh; background:var(--bg); color:var(--text); font-fam
 .fade.in { opacity:1;transform:translateY(0); }
 
 @media print {
-  .download-bar { display:none; }
+  .download-btn { display:none; }
   body { background:#fff;color:#000; }
   :root { --bg:#fff;--surface:#f8f8f8;--surface2:#f0f0f0;--surface3:#e8e8e8;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.15);--text:#111;--text2:#555;--muted:#888; }
   .page { padding:2em 1.5em; }
@@ -151,16 +150,15 @@ html, body { min-height:100vh; background:var(--bg); color:var(--text); font-fam
           <path d="M3 3h8M3 7h5M3 11V3" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      Forge<span>.inc</span>
+      <span style="color:var(--text)">Forge</span><span style="color:var(--blue-l)">.inc</span>
     </div>
-    <div class="rpt-date" id="rptDate">—</div>
-  </div>
-
-  <div class="download-bar fade">
-    <button class="download-btn" onclick="downloadPDF()">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11h10" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-      Save as PDF
-    </button>
+    <div style="display:flex;align-items:center;gap:1em">
+      <div class="rpt-date" id="rptDate">—</div>
+      <button class="download-btn" onclick="downloadPDF()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M4 6l3 3 3-3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11h10" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Save as PDF
+      </button>
+    </div>
   </div>
 
   <div class="hero fade">
@@ -231,6 +229,14 @@ function statusBadge(pct) {
   if (pct > 85)  return '<span class="badge badge-warn">Near Limit</span>';
   return '<span class="badge badge-good">On Track</span>';
 }
+function projectStatusBadge(p) {
+  const now   = new Date(); now.setHours(0,0,0,0);
+  const start = p.startDate ? new Date(p.startDate+'T00:00:00') : null;
+  const end   = p.endDate   ? new Date(p.endDate+'T00:00:00')   : null;
+  if (start && start > now) return '<span class="badge" style="background:rgba(26,109,232,0.12);color:var(--blue-l)">Upcoming</span>';
+  if (end && end < now)     return '<span class="badge" style="background:rgba(255,255,255,0.07);color:var(--text2)">Completed</span>';
+  return '<span class="badge badge-good">In Progress</span>';
+}
 function barColor(pct) {
   return pct > 100 ? 'var(--red)' : pct > 85 ? 'var(--orange)' : 'var(--green)';
 }
@@ -267,7 +273,7 @@ function render(data) {
   } else if (p.startDate) {
     meta.push(`<div class="hero-meta-item"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v2M8 1v2M1 5h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Started ${fmtD(p.startDate)}</div>`);
   }
-  meta.push(statusBadge(pct));
+  meta.push(projectStatusBadge(p));
   document.getElementById('heroMeta').innerHTML = meta.join('');
 
   // Stats
@@ -312,23 +318,23 @@ function render(data) {
 
   if (catsWithSpend.length) {
     document.getElementById('catSection').style.display = '';
-    const maxCatSpend = Math.max(...catsWithSpend.map(c=>c.spent));
     document.getElementById('catList').innerHTML = catsWithSpend
       .sort((a,b) => b.spent - a.spent)
       .map((cat, idx) => {
-        const cp  = p.budget > 0 ? Math.round(cat.spent / p.budget * 100) : 0;
-        const bw  = maxCatSpend > 0 ? Math.round(cat.spent / maxCatSpend * 100) : 0;
+        const cp  = p.budget > 0 ? (cat.spent / p.budget * 100) : 0;
+        const cpR = Math.round(cp);
+        const bw  = Math.min(100, cp); // bar width = % of budget, capped at 100
         const cc  = cp > 100 ? 'var(--red)' : cp > 85 ? 'var(--orange)' : (p.color || 'var(--blue)');
         return `<div class="cat-row">
           <div class="cat-row-head">
             <div class="cat-row-name">${cat.name}</div>
             <div class="cat-row-right">
-              <div class="cat-row-pct">${cp}% of budget</div>
+              <div class="cat-row-pct">${cpR}% of budget</div>
               <div class="cat-row-amt" style="color:${cc}">$${fmt(cat.spent)}</div>
             </div>
           </div>
           <div class="cat-bar">
-            <div class="cat-bar-fill" style="width:0%;background:${cc}" data-w="${bw}" data-delay="${idx*60}"></div>
+            <div class="cat-bar-fill" style="width:0%;background:${cc}" data-w="${bw.toFixed(1)}" data-delay="${idx*60}"></div>
           </div>
         </div>`;
       }).join('');
@@ -368,7 +374,12 @@ function toggleTx(i) {
 }
 
 function downloadPDF() {
+  // Set document title to project name so the PDF filename is meaningful
+  const heroName = document.getElementById('heroName');
+  const orig = document.title;
+  if (heroName) document.title = heroName.textContent + ' — Forge Report';
   window.print();
+  setTimeout(() => { document.title = orig; }, 1000);
 }
 
 window.addEventListener('load', () => {
