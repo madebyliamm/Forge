@@ -352,6 +352,24 @@ tr:hover td { background: rgba(255,255,255,0.015); }
   </div>
 </div>
 
+<!-- ASSIGN WORKERS MODAL -->
+<div class="modal-bg" id="assignWorkersModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head">
+      <div class="modal-title">Assign Workers</div>
+      <button class="modal-close" onclick="closeModal('assignWorkersModal')">✕</button>
+    </div>
+    <div class="field">
+      <label>Select workers for this project</label>
+      <div id="aw-list" style="display:flex;flex-direction:column;gap:0.5em;max-height:16em;overflow-y:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('assignWorkersModal')">Cancel</button>
+      <button class="btn-save" onclick="saveAssignWorkers()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- QUICK ADD PURCHASE (from project detail — no project/date/worker fields) -->
 <div class="modal-bg" id="quickPurchaseModal">
   <div class="modal" style="max-width:400px">
@@ -671,6 +689,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <div class="page-sub" id="projDetailMeta"></div>
           </div>
           <div style="display:flex;gap:0.6em">
+            <button id="projAssignBtn" class="tb-btn" style="font-size:0.78rem;display:none" onclick="openAssignWorkersModal(activeProject)">👥 Assign Workers</button>
             <button class="tb-btn primary" onclick="openQuickPurchase()">+ Add Transaction</button>
             <button class="tb-btn" style="color:var(--red);border-color:rgba(232,64,64,0.25)" onclick="deleteCurrentProject()">Delete</button>
           </div>
@@ -1659,6 +1678,8 @@ function renderProjectDetail(idx) {
 
   // Editable project name
   document.getElementById('projDetailNameText').textContent = p.name;
+  const assignBtn = document.getElementById('projAssignBtn');
+  if (assignBtn) assignBtn.style.display = DB.role === 'admin' ? '' : 'none';
 
   // Meta row — each item clickable to edit
   const metaEl = document.getElementById('projDetailMeta');
@@ -1741,12 +1762,12 @@ function renderProjectDetail(idx) {
 // Helper: signed amount (negative=expense, positive=income)
 function txAmount(pu) { return pu.amount; } // already signed
 function visibleProjects() {
-  // Admins see all projects; workers only see projects they're assigned to
-  if (isPrimaryAdmin || DB.role === 'admin' || DB.role === 'Admin') return DB.projects.map((_,i)=>i);
+  // Admins see all projects; workers only see assigned projects
+  if (DB.role === 'admin') return DB.projects.map((_,i)=>i);
   const uid = getSession()?.user?.id;
   return DB.projects.map((_,i)=>i).filter(i => {
     const aw = DB.projects[i].assignedWorkers || [];
-    return aw.length === 0 || aw.includes(uid); // if no workers assigned, everyone sees it
+    return aw.length === 0 || aw.includes(uid);
   });
 }
 
@@ -2398,6 +2419,38 @@ function saveNewProject() {
   sbSaveProject(proj, idx).catch(e => { console.error('Project save failed:', e); showToast('Failed to save project'); });
 }
 
+// ══ ASSIGN WORKERS ══
+let assignWorkersProjectIdx = null;
+function openAssignWorkersModal(idx) {
+  assignWorkersProjectIdx = idx;
+  const proj = DB.projects[idx];
+  const assigned = proj.assignedWorkers || [];
+  const list = document.getElementById('aw-list');
+  if (!DB.team.length) {
+    list.innerHTML = '<div style="font-size:0.82rem;color:var(--muted)">No team members yet.</div>';
+  } else {
+    list.innerHTML = DB.team.map(m => {
+      const uid = m.user_id || m._id;
+      const name = (m.firstName+' '+m.lastName).trim();
+      const checked = assigned.includes(uid) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:0.7em;font-size:0.88rem;cursor:pointer;padding:0.35em 0">' +
+        '<input type="checkbox" data-uid="'+uid+'" '+checked+' style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> '+name+'</label>';
+    }).join('');
+  }
+  openModal('assignWorkersModal');
+}
+function saveAssignWorkers() {
+  const idx = assignWorkersProjectIdx;
+  if (idx === null) return;
+  const workers = Array.from(document.querySelectorAll('#aw-list input[type=checkbox]:checked'))
+    .map(cb => cb.dataset.uid);
+  DB.projects[idx].assignedWorkers = workers;
+  closeModal('assignWorkersModal');
+  renderProjectDetail(idx);
+  renderSidebar();
+  sbSaveProject(DB.projects[idx], idx).catch(console.error);
+}
+
 // ══ QUICK ADD PURCHASE (from project detail) ══
 // ── Transaction type toggle ──
 let txType = { qpu: 'expense', pu: 'expense', pd: 'expense' };
@@ -2918,7 +2971,13 @@ function openMemberDetail(teamIdx) {
 
   document.getElementById('mdSpent').textContent     = '$' + fmt(spend);
   document.getElementById('mdPurchases').textContent = buys.length;
-  document.getElementById('mdProjects').textContent  = projSet.size;
+  // Project count: how many projects this member is assigned to
+  const memberUid = m.user_id || m._id;
+  const projCount = m.role === 'Admin' || m.role === 'admin'
+    ? DB.projects.length
+    : DB.projects.filter(p => (p.assignedWorkers||[]).includes(memberUid)).length;
+  const projCountEl = document.getElementById('mdProjects');
+  if (projCountEl) projCountEl.textContent = projCount;
   document.getElementById('mdEmail').textContent     = m.email || '—';
   document.getElementById('mdJoined').textContent    = m.joined_at ? 'Joined ' + fmtDate(new Date(m.joined_at).toISOString().split('T')[0]) : 'Member';
 
