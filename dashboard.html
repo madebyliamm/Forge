@@ -202,6 +202,11 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .member-card:hover { border-color: var(--border2); box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
 .member-card .member-menu-btn { opacity: 0; transition: opacity 0.15s; }
 .member-card:hover .member-menu-btn { opacity: 1; }
+.sub-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.8em; padding: 1.25em 1.4em; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.sub-card:hover { border-color: var(--border2); box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+.sub-status-active { background:rgba(13,160,104,0.12);color:#0da068;border:1px solid rgba(13,160,104,0.25); }
+.sub-status-pending { background:rgba(217,149,32,0.12);color:#d99520;border:1px solid rgba(217,149,32,0.25); }
+.sub-status-complete { background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border); }
 .member-avatar { width: 3.2em; height: 3.2em; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem; font-weight: 700; flex-shrink: 0; overflow: hidden; }
 .member-name { font-size: 0.95rem; font-weight: 700; }
 .member-role { font-size: 0.75rem; color: var(--text2); }
@@ -367,6 +372,62 @@ tr:hover td { background: rgba(255,255,255,0.015); }
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal('assignWorkersModal')">Cancel</button>
       <button class="btn-save" onclick="saveAssignWorkers()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SUBCONTRACTOR -->
+<div class="modal-bg" id="addSubModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title">Add Subcontractor</div>
+      <button class="modal-close" onclick="closeModal('addSubModal')">✕</button>
+    </div>
+    <div class="field"><label>Name</label><input type="text" id="sub-name" placeholder="e.g. Martinez Electric"/></div>
+    <div class="field"><label>Trade / Scope <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="text" id="sub-trade" placeholder="e.g. Electrical, Plumbing, HVAC"/></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('addSubModal')">Cancel</button>
+      <button class="btn-save" onclick="saveNewSub()">Add Subcontractor</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUB DETAIL / EDIT -->
+<div class="modal-bg" id="subDetailModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="subDetailName"></div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.15em" id="subDetailTrade"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('subDetailModal')">✕</button>
+    </div>
+    <!-- Project entries -->
+    <div style="margin-bottom:1em">
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:0.65em">Project Work</div>
+      <div id="subProjectList" style="display:flex;flex-direction:column;gap:0.5em;max-height:14em;overflow-y:auto"></div>
+    </div>
+    <!-- Add project entry -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.6em;padding:0.9em;margin-bottom:0.5em">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--text2);margin-bottom:0.65em">Add Project</div>
+      <div class="modal-row">
+        <div class="field" style="margin:0"><label>Project</label><select id="sub-proj-select" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:0.45em;padding:0.6em 0.75em;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none"></select></div>
+        <div class="field" style="margin:0"><label>Contract ($)</label><input type="number" id="sub-contract-amt" placeholder="10000" min="0"/></div>
+      </div>
+      <div class="modal-row" style="margin-top:0.65em">
+        <div class="field" style="margin:0"><label>Status</label>
+          <select id="sub-status" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:0.45em;padding:0.6em 0.75em;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none">
+            <option>Pending</option><option>Active</option><option>Complete</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;display:flex;align-items:flex-end">
+          <button class="btn-save" style="width:100%;margin:0" onclick="addSubProjectEntry()">Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button onclick="deleteCurrentSub()" style="background:none;border:none;color:var(--red);font-size:0.82rem;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">Remove Subcontractor</button>
+      <button class="btn-cancel" onclick="closeModal('subDetailModal')">Close</button>
     </div>
   </div>
 </div>
@@ -779,6 +840,23 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         <div class="empty-state" id="teamEmpty" style="display:none">
           <div class="empty-icon">👷</div><div class="empty-title">No team members yet</div>
           <div class="empty-sub">Share the invite link above with your crew. They'll appear here automatically once they join.</div>
+        </div>
+
+        <!-- SUBCONTRACTORS -->
+        <div id="subSection" style="margin-top:2.5em">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1em">
+            <div>
+              <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.2em">Subcontractors</div>
+              <div id="subSub" style="font-size:0.8rem;color:var(--muted)">External contractors hired per project</div>
+            </div>
+            <button id="addSubBtn" class="tb-btn primary" style="display:none;font-size:0.8rem" onclick="openAddSubModal()">+ Add Sub</button>
+          </div>
+          <div class="team-grid" id="subGrid"></div>
+          <div id="subEmpty" style="display:none;padding:1.5em;text-align:center;border:1px dashed var(--border);border-radius:0.8em">
+            <div style="font-size:1.5rem;margin-bottom:0.5em">🔧</div>
+            <div style="font-size:0.88rem;font-weight:600;margin-bottom:0.3em">No subcontractors yet</div>
+            <div style="font-size:0.78rem;color:var(--muted)">Add external contractors you hire for specific projects.</div>
+          </div>
         </div>
       </div>
 
@@ -1235,7 +1313,7 @@ function genCode() {
 }
 
 // ══ IN-MEMORY DB (populated from Supabase) ══
-let DB = null;
+let DB = { companyName:'',plan:'',teamCode:'',role:'worker',projects:[],purchases:[],team:[],subs:[] };
 let COMPANY_ID = null;
 
 // ── Save wrappers ──
@@ -1378,9 +1456,10 @@ async function loadFromSupabase() {
     COMPANY_ID = co.id;
 
     // ── Load all data in parallel (fail gracefully so one bad query can't loop) ──
-    const [projects, purchases, team] = await Promise.all([
+    const [projects, purchases, subs, team] = await Promise.all([
       sbGet('projects',     'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc').catch(() => []),
       sbGet('purchases',    'company_id=eq.' + COMPANY_ID + '&order=ts.desc').catch(() => []),
+      sbGet('subs',         'company_id=eq.' + COMPANY_ID + '&order=name.asc').catch(() => []),
       sbGet('team_members', 'company_id=eq.' + COMPANY_ID).catch(() => [])
     ]);
 
@@ -1428,6 +1507,10 @@ async function loadFromSupabase() {
         _id: m.id, firstName: m.first_name, lastName: m.last_name,
         email: m.email, role: m.role, user_id: m.user_id || null,
         hourlyRate: m.hourly_rate || 0
+      })),
+      subs: (subs || []).map(s => ({
+        _id: s.id, name: s.name, trade: s.trade || '',
+        projects: s.projects || []
       }))
     };
 
@@ -2208,6 +2291,184 @@ function copyTeamCode() {
 function regenerateCode() {
   showConfirm('The old invite link will stop working immediately. Anyone you\'ve already sent it to will need the new link.', () => { DB.teamCode = genCode(); sbSaveCompany().catch(console.error); renderTeam(); }, 'Reset Invite Link?', 'Reset Link');
 }
+// ══ SUBCONTRACTORS ══
+const SUB_STATUS_STYLE = {
+  'Active':   'sub-status-active',
+  'Pending':  'sub-status-pending',
+  'Complete': 'sub-status-complete',
+};
+
+function renderSubs() {
+  const grid    = document.getElementById('subGrid');
+  const empty   = document.getElementById('subEmpty');
+  const addBtn  = document.getElementById('addSubBtn');
+  if (!grid) return;
+  const isAdmin = DB.role === 'admin';
+  if (addBtn) addBtn.style.display = isAdmin ? '' : 'none';
+  const subs = DB.subs || [];
+  if (!subs.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = subs.map((s, i) => {
+    const projects = s.projects || [];
+    const totalContract = projects.reduce((sum, p) => sum + (p.contractAmt || 0), 0);
+    const activeCount   = projects.filter(p => p.status === 'Active').length;
+    const initials      = s.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const statusSummary = projects.length === 0 ? 'No projects yet'
+      : projects.length === 1 ? (projects[0].status + ' · ' + (DB.projects[projects[0].projIdx]?.name || 'Unknown'))
+      : projects.length + ' projects' + (activeCount > 0 ? ' · ' + activeCount + ' active' : '');
+
+    // Dominant status color for avatar
+    const hasActive   = projects.some(p => p.status === 'Active');
+    const hasPending  = projects.some(p => p.status === 'Pending');
+    const avatarColor = hasActive ? '#0da068' : hasPending ? '#d99520' : 'var(--surface3)';
+    const avatarText  = hasActive ? '#fff' : hasPending ? '#fff' : 'var(--muted)';
+
+    return `<div class="sub-card" onclick="openSubDetail(${i})">
+      <div style="display:flex;align-items:center;gap:0.85em;margin-bottom:0.9em">
+        <div style="width:40px;height:40px;border-radius:0.5em;background:${avatarColor};display:grid;place-items:center;font-size:0.78rem;font-weight:700;color:${avatarText};flex-shrink:0;letter-spacing:0.02em">${initials}</div>
+        <div style="min-width:0;flex:1;overflow:hidden">
+          <div style="font-size:0.95rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+          <div style="font-size:0.73rem;color:var(--muted);margin-top:0.1em">${s.trade || 'Subcontractor'}</div>
+        </div>
+        ${totalContract > 0 ? `<div style="text-align:right;flex-shrink:0"><div style="font-size:1rem;font-weight:700">$${fmt(totalContract)}</div><div style="font-size:0.68rem;color:var(--muted)">contracted</div></div>` : ''}
+      </div>
+      <div style="font-size:0.78rem;color:var(--text2);padding-top:0.7em;border-top:1px solid var(--border)">${statusSummary}</div>
+    </div>`;
+  }).join('');
+}
+
+let currentSubIdx = null;
+
+function openAddSubModal() {
+  document.getElementById('sub-name').value = '';
+  document.getElementById('sub-trade').value = '';
+  openModal('addSubModal');
+  setTimeout(() => document.getElementById('sub-name').focus(), 80);
+}
+
+function saveNewSub() {
+  const name = document.getElementById('sub-name').value.trim();
+  if (!name) { document.getElementById('sub-name').focus(); return; }
+  const trade = document.getElementById('sub-trade').value.trim();
+  const sub = { name, trade, projects: [] };
+  DB.subs.push(sub);
+  const idx = DB.subs.length - 1;
+  closeModal('addSubModal');
+  sbSaveSub(sub, idx).then(() => renderSubs()).catch(console.error);
+  renderSubs();
+  // Auto open detail
+  openSubDetail(idx);
+}
+
+function openSubDetail(idx) {
+  currentSubIdx = idx;
+  const s = DB.subs[idx];
+  document.getElementById('subDetailName').textContent = s.name;
+  document.getElementById('subDetailTrade').textContent = s.trade || '';
+  // Populate project select
+  const sel = document.getElementById('sub-proj-select');
+  sel.innerHTML = DB.projects.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+  document.getElementById('sub-contract-amt').value = '';
+  document.getElementById('sub-status').value = 'Active';
+  renderSubProjectList(idx);
+  openModal('subDetailModal');
+}
+
+function renderSubProjectList(idx) {
+  const s    = DB.subs[idx];
+  const list = document.getElementById('subProjectList');
+  if (!s.projects.length) {
+    list.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);padding:0.5em 0">No projects yet — add one below.</div>';
+    return;
+  }
+  list.innerHTML = s.projects.map((entry, ei) => {
+    const proj     = DB.projects[entry.projIdx];
+    const projName = proj?.name || 'Unknown Project';
+    const statusClass = SUB_STATUS_STYLE[entry.status] || 'sub-status-pending';
+    return `<div style="display:flex;align-items:center;gap:0.75em;padding:0.65em 0.85em;background:var(--surface2);border:1px solid var(--border);border-radius:0.55em">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${projName}</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-top:0.1em">$${fmt(entry.contractAmt || 0)} contracted</div>
+      </div>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:0.2em 0.6em;border-radius:0.3em" class="${statusClass}">${entry.status}</span>
+      ${DB.role==='admin' ? `<button onclick="removeSubProject(${idx},${ei})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:0.85rem;padding:0.1em 0.2em;line-height:1;transition:color 0.12s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function addSubProjectEntry() {
+  if (currentSubIdx === null) return;
+  const projIdx     = parseInt(document.getElementById('sub-proj-select').value);
+  const contractAmt = parseFloat(document.getElementById('sub-contract-amt').value) || 0;
+  const status      = document.getElementById('sub-status').value;
+  if (isNaN(projIdx)) return;
+  const s = DB.subs[currentSubIdx];
+  const entry = { projIdx, contractAmt, status };
+  s.projects.push(entry);
+  sbSaveSub(s, currentSubIdx).catch(console.error);
+  // Auto-create expense transaction on the project
+  if (contractAmt > 0) {
+    const me      = DB.team.find(m => m.user_id === getSession()?.user?.id);
+    const addedBy = me ? (me.firstName+' '+me.lastName).trim() : 'Admin';
+    const tx = {
+      vendor: s.name + (s.trade ? ' ('+s.trade+')' : ''),
+      amount: contractAmt, type: 'expense',
+      category: 'Subcontractors',
+      date: new Date().toISOString().slice(0,10),
+      notes: 'Subcontractor: ' + s.name,
+      worker: addedBy, projectIdx: projIdx, ts: Date.now(),
+    };
+    DB.purchases.push(tx);
+    sbSavePurchase(tx, DB.purchases.length-1).catch(console.error);
+  }
+  renderSubProjectList(currentSubIdx);
+  renderSubs();
+}
+
+function removeSubProject(subIdx, entryIdx) {
+  const s = DB.subs[subIdx];
+  s.projects.splice(entryIdx, 1);
+  sbSaveSub(s, subIdx).catch(console.error);
+  renderSubProjectList(subIdx);
+  renderSubs();
+}
+
+function deleteCurrentSub() {
+  if (currentSubIdx === null) return;
+  const s = DB.subs[currentSubIdx];
+  showConfirm('Remove ' + s.name + ' from subcontractors?', async () => {
+    if (s._id) {
+      await fetch(SB_URL+'/rest/v1/subs?id=eq.'+s._id, {
+        method:'DELETE',
+        headers:{apikey:SB_KEY,Authorization:'Bearer '+getSession()?.access_token,'Content-Type':'application/json'}
+      }).catch(console.error);
+    }
+    DB.subs.splice(currentSubIdx, 1);
+    closeModal('subDetailModal');
+    renderSubs();
+  }, 'Remove Subcontractor?', 'Remove', true);
+}
+
+async function sbSaveSub(sub, localIdx) {
+  if (!COMPANY_ID) return;
+  const payload = {
+    company_id: COMPANY_ID,
+    name:       sub.name,
+    trade:      sub.trade || null,
+    projects:   sub.projects || [],
+  };
+  if (sub._id) {
+    await sbPatch('subs', 'id=eq.'+sub._id, payload);
+  } else {
+    const rows = await sbPost('subs', payload);
+    if (rows?.[0]?.id) DB.subs[localIdx]._id = rows[0].id;
+  }
+}
+
 function renderTeam() {
   const grid  = document.getElementById('teamGrid');
   const empty = document.getElementById('teamEmpty');
@@ -2234,6 +2495,7 @@ function renderTeam() {
   });
   document.getElementById('teamSub').textContent = fullTeam.length+' member'+(fullTeam.length!==1?'s':'')+' · '+(DB.plan||'')+' plan';
   empty.style.display = 'none';
+  renderSubs();
 
   grid.innerHTML = fullTeam.map((m, i) => {
     const init    = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
