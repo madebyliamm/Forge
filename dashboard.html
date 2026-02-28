@@ -1421,7 +1421,7 @@ async function loadFromSupabase() {
         return {
           _id: pu.id, vendor: pu.vendor, amount: Math.abs(pu.amount), type: pu.type || 'expense',
           category: pu.category, date: pu.date, notes: pu.notes,
-          worker: pu.worker, ts: pu.ts, projectIdx
+          worker: pu.worker, ts: pu.ts, _laborAuto: pu.labor_auto || false, projectIdx
         };
       }).filter(pu => pu.projectIdx >= 0),
       team: team.map(m => ({
@@ -2746,18 +2746,10 @@ function renderCatChips() {
     '<div class="cat-chip" id="labor-chip" style="border-color:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.35)' : 'var(--border)') + ';background:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.07)' : 'var(--surface2)') + ';cursor:pointer" onclick="toggleLaborChip()">' +
       '<span style="font-size:0.8rem;font-weight:600;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">Labor Estimate</span>' +
       (newProjLaborEnabled && laborTotal > 0 ? '<span class="cat-chip-pct" style="margin-left:0.4em">$' + fmt(laborTotal) + ' est.</span>' : '') +
-      '' +
+      (newProjLaborEnabled ? ' <span style="margin-left:0.5em;font-size:0.7rem;color:var(--muted)" onclick="event.stopPropagation()"><input type="number" id="np-labor-pct" min="1" max="100" placeholder="%" value="' + (newProjLaborPct||'') + '" style="width:2.8em;background:var(--surface);border:1px solid var(--border2);border-radius:0.3em;padding:0.12em 0.3em;font-size:0.72rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" oninput="newProjLaborPct=parseInt(this.value)||null" onclick="event.stopPropagation()" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>%</span>' : '') +
       '<span style="margin-left:auto;font-size:0.7rem;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">' + (newProjLaborEnabled ? '✓ on' : 'off') + '</span>' +
     '</div>' +
-    (newProjLaborEnabled ?
-      '<div style="display:flex;align-items:center;gap:0.6em;padding:0.5em 0.3em 0.2em" onclick="event.stopPropagation()">' +
-        '<label style="font-size:0.78rem;font-weight:600;color:var(--text2);white-space:nowrap">Budget %</label>' +
-        '<input type="number" id="np-labor-pct" min="1" max="100" placeholder="No limit" value="' + (newProjLaborPct||'') + '" ' +
-          'style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.85rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none" ' +
-          'oninput="newProjLaborPct=parseInt(this.value)||null" onclick="event.stopPropagation()" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>' +
-        '<span style="font-size:0.82rem;color:var(--muted)">%</span>' +
-      '</div>'
-    : '') +
+
     newProjCats.map((c,i) =>
       '<div class="cat-chip">' +
         '<span class="cat-chip-name">' + c.name + '</span>' +
@@ -2932,7 +2924,7 @@ function openQuickPurchase() {
   const p    = DB.projects[activeProject];
   const cats = p.categories || [];
   document.getElementById('qpu-proj-label').textContent = p.name + ' · ' + new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  document.getElementById('qpu-category').innerHTML = (cats.length ? cats : ['General']).map(c=>'<option>'+c+'</option>').join('');
+  document.getElementById('qpu-category').innerHTML = (cats.length ? cats : ['General']).filter(c=>c!=='Labor Estimate').map(c=>'<option>'+c+'</option>').join('');
   document.getElementById('qpu-vendor').value  = '';
   document.getElementById('qpu-amount').value  = '';
   document.getElementById('qpu-notes').value   = '';
@@ -2979,7 +2971,7 @@ function openAddPurchase() {
 function updatePurchaseCats() {
   const idx  = parseInt(document.getElementById('pu-project').value);
   const cats = (DB.projects[idx]&&DB.projects[idx].categories)||[];
-  document.getElementById('pu-category').innerHTML = (cats.length?cats:['General']).map(c=>'<option>'+c+'</option>').join('');
+  document.getElementById('pu-category').innerHTML = (cats.length?cats:['General']).filter(c=>c!=='Labor Estimate').map(c=>'<option>'+c+'</option>').join('');
 }
 function saveNewPurchase() {
   const vendor = document.getElementById('pu-vendor').value.trim();
@@ -3030,7 +3022,7 @@ function switchToEditMode() {
   document.getElementById('pd-edit-date').value    = pu.date||'';
   document.getElementById('pd-edit-worker').value  = pu.worker||'';
   document.getElementById('pd-edit-notes').value   = pu.notes||'';
-  document.getElementById('pd-edit-category').innerHTML = (cats.length?cats:['General']).map(c=>'<option'+(c===pu.category?' selected':'')+'>'+c+'</option>').join('');
+  document.getElementById('pd-edit-category').innerHTML = (cats.length?cats:['General']).filter(c=>c!=='Labor Estimate').map(c=>'<option'+(c===pu.category?' selected':'')+'>'+c+'</option>').join('');
   document.getElementById('pd-view').style.display = 'none';
   document.getElementById('pd-edit').style.display = 'block';
 }
