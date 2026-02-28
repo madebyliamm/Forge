@@ -1743,7 +1743,7 @@ function renderAllPurchases() {
   const sorted = [...DB.purchases].map((p,i)=>Object.assign({},p,{_i:i})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   tbody.innerHTML = sorted.map(pu=>{
     const proj = DB.projects[pu.projectIdx];
-    return '<tr><td><strong>'+pu.vendor+'</strong></td><td>'+(proj?'<span style="display:inline-flex;align-items:center;gap:0.35em"><span style="width:6px;height:6px;border-radius:50%;background:'+proj.color+';display:inline-block"></span>'+proj.name+'</span>':'—')+'</td><td><span class="tag tag-blue">'+(pu.category||'—')+'</span></td><td><strong>$'+fmt(pu.amount)+'</strong></td><td>'+(pu.worker||'—')+'</td><td style="color:var(--muted)">'+fmtDate(pu.date)+'</td><td><button class="del-btn" onclick="deletePurchase('+pu._i+')">✕</button></td></tr>';
+    return '<tr><td><strong>'+pu.vendor+'</strong></td><td>'+(proj?'<span style="display:inline-flex;align-items:center;gap:0.35em"><span style="width:6px;height:6px;border-radius:50%;background:'+proj.color+';display:inline-block"></span>'+proj.name+'</span>':'—')+'</td><td><span class="tag tag-blue">'+(pu.category||'—')+'</span></td><td><strong style="color:'+(pu.type==='income'?'#22c55e':'var(--red)')+'">'+( pu.type==='income'?'+':'-')+'$'+fmt(Math.abs(pu.amount))+'</strong></td><td>'+(pu.worker||'—')+'</td><td style="color:var(--muted)">'+fmtDate(pu.date)+'</td><td><button class="del-btn" onclick="deletePurchase('+pu._i+')">✕</button></td></tr>';
   }).join('');
 }
 
