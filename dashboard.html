@@ -368,6 +368,21 @@ tr:hover td { background: rgba(255,255,255,0.015); }
   </div>
 </div>
 
+<div class="modal-bg" id="laborModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title">Labor Estimate</div>
+      <button class="modal-close" onclick="closeModal('laborModal')">✕</button>
+    </div>
+    <div id="labor-modal-body" style="padding:0 0 0.5em"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('laborModal')">Close</button>
+      <button class="btn-save" onclick="saveLaborModal()">Save</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- QUICK ADD PURCHASE (from project detail — no project/date/worker fields) -->
 <div class="modal-bg" id="quickPurchaseModal">
   <div class="modal" style="max-width:400px">
@@ -687,6 +702,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <div class="page-sub" id="projDetailMeta"></div>
           </div>
           <div style="display:flex;gap:0.6em">
+            <button id="projLaborBtn" class="tb-btn" style="font-size:0.78rem;display:none" onclick="openLaborModal(activeProject)">⏱ Labor</button>
             <button id="projAssignBtn" class="tb-btn" style="font-size:0.78rem;display:none" onclick="openAssignWorkersModal(activeProject)">👥 Assign Workers</button>
             <button class="tb-btn primary" onclick="openQuickPurchase()">+ Add Transaction</button>
             <button class="tb-btn" style="color:var(--red);border-color:rgba(232,64,64,0.25)" onclick="deleteCurrentProject()">Delete</button>
@@ -1526,6 +1542,51 @@ function renderLaborEditRows(projIdx) {
     '</div>' : '');
 }
 
+function openLaborModal(projIdx) {
+  const proj = DB.projects[projIdx];
+  if (!proj) return;
+  const body = document.getElementById('labor-modal-body');
+  const start = proj.startDate, end = proj.endDate;
+  const weeks = (start && end) ? Math.max(0,(new Date(end)-new Date(start))/(7*24*3600*1000)).toFixed(1) : null;
+  const laborPct = proj.catBudgets?.['Labor Estimate'] || '';
+  body.innerHTML =
+    '<div style="padding:0 1.5em">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1em">' +
+      '<div style="font-size:0.82rem;color:var(--text2)">Labor estimate for <strong>'+proj.name+'</strong>'+(weeks?' · '+weeks+' weeks':'')+' · $'+fmt(calcLaborEstimate(projIdx))+' total</div>' +
+      '<label style="display:flex;align-items:center;gap:0.5em;font-size:0.82rem;cursor:pointer">' +
+        '<span style="color:var(--muted)">Enabled</span>' +
+        '<input type="checkbox" id="lm-enabled" '+(proj.laborEnabled!==false?'checked':'')+' style="width:1em;height:1em;accent-color:var(--blue)"/>' +
+      '</label>' +
+    '</div>' +
+    '<div style="margin-bottom:1em">' +
+      '<label style="font-size:0.78rem;font-weight:600;color:var(--text2);display:block;margin-bottom:0.35em">Budget allocation (%)</label>' +
+      '<input type="number" id="lm-pct" min="1" max="100" placeholder="e.g. 30" value="'+laborPct+'" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.6em 0.8em;font-size:0.9rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>' +
+      '<div style="font-size:0.72rem;color:var(--muted);margin-top:0.3em">Optional — portion of total budget allocated to labor.</div>' +
+    '</div>' +
+    '<div><label style="font-size:0.78rem;font-weight:600;color:var(--text2);display:block;margin-bottom:0.5em">Hours per week per worker</label>' +
+    renderLaborEditRows(projIdx) +
+    '</div></div>';
+  openModal('laborModal');
+  // store projIdx on modal
+  document.getElementById('laborModal')._projIdx = projIdx;
+}
+
+function saveLaborModal() {
+  const modal  = document.getElementById('laborModal');
+  const projIdx = modal._projIdx;
+  const proj   = DB.projects[projIdx];
+  if (!proj) return;
+  proj.laborEnabled = document.getElementById('lm-enabled').checked;
+  const pctVal = parseInt(document.getElementById('lm-pct').value);
+  if (!proj.catBudgets) proj.catBudgets = {};
+  if (pctVal >= 1 && pctVal <= 100) proj.catBudgets['Labor Estimate'] = pctVal;
+  else delete proj.catBudgets['Labor Estimate'];
+  closeModal('laborModal');
+  sbSaveProject(proj, projIdx).catch(console.error);
+  if (proj.laborEnabled) upsertLaborTransaction(projIdx);
+  renderProjectDetail(projIdx);
+}
+
 function toggleLaborEditPanel(projIdx) {
   const panel = document.getElementById('labor-edit-panel-'+projIdx);
   if (!panel) return;
@@ -1540,9 +1601,57 @@ async function saveLaborHours(projIdx, uid, val) {
   // Re-render labor panel inline without full re-render
   const panel = document.getElementById('labor-edit-panel-'+projIdx);
   if (panel) panel.innerHTML = renderLaborEditRows(projIdx);
-  // Debounce save
+  // Debounce save + auto-transaction
   clearTimeout(saveLaborHours._t);
-  saveLaborHours._t = setTimeout(() => sbSaveProject(proj, projIdx).catch(console.error), 800);
+  saveLaborHours._t = setTimeout(() => {
+    sbSaveProject(proj, projIdx).catch(console.error);
+    upsertLaborTransaction(projIdx);
+  }, 800);
+}
+
+function upsertLaborTransaction(projIdx) {
+  const proj  = DB.projects[projIdx];
+  if (!proj || !proj.laborEnabled) return;
+  const total = calcLaborEstimate(projIdx);
+  if (total <= 0) return;
+  // Find existing labor auto-transaction for this project
+  const existing = DB.purchases.findIndex(p => p.projectIdx === projIdx && p._laborAuto === true);
+  const me = DB.team.find(m => m.user_id === getSession()?.user?.id);
+  const addedBy = me ? (me.firstName+' '+me.lastName).trim() : 'Admin';
+  const tx = {
+    vendor:      'Labor Estimate',
+    amount:      -Math.abs(total),
+    category:    'Labor Estimate',
+    date:        new Date().toISOString().slice(0,10),
+    notes:       'Auto generated by Forge.inc',
+    worker:      addedBy,
+    type:        'expense',
+    projectIdx:  projIdx,
+    _laborAuto:  true,
+  };
+  if (existing >= 0) {
+    DB.purchases[existing] = { ...DB.purchases[existing], ...tx };
+    sbPatch('purchases', 'id=eq.'+DB.purchases[existing]._id, tx).catch(console.error);
+  } else {
+    DB.purchases.push(tx);
+    const localIdx = DB.purchases.length - 1;
+    sbPost('purchases', {
+      company_id:   DB.companyId,
+      project_id:   proj._id || null,
+      project_idx:  projIdx,
+      vendor:       tx.vendor,
+      amount:       tx.amount,
+      category:     tx.category,
+      date:         tx.date,
+      notes:        tx.notes,
+      worker:       tx.worker,
+      type:         tx.type,
+      labor_auto:   true,
+    }).then(rows => {
+      if (rows?.[0]?.id) DB.purchases[localIdx]._id = rows[0].id;
+    }).catch(console.error);
+  }
+  renderProjectDetail(projIdx);
 }
 
 // ══ BURN RATE ══
@@ -1800,12 +1909,14 @@ function renderProjectDetail(idx) {
   document.getElementById('projDetailNameText').textContent = p.name;
   const assignBtn = document.getElementById('projAssignBtn');
   if (assignBtn) assignBtn.style.display = DB.role === 'admin' ? '' : 'none';
+  const laborBtn = document.getElementById('projLaborBtn');
+  if (laborBtn) laborBtn.style.display = DB.role === 'admin' ? '' : 'none';
 
   // Meta row — each item clickable to edit
   const metaEl = document.getElementById('projDetailMeta');
   metaEl.innerHTML = '';
   const metaItems = [
-    { label: p.clientName||p.client||null, field:'clientName', placeholder:'Add client' },
+    { label: p.clientName||null, field:'clientName', placeholder:'Add client' },
     { label: p.location||null,             field:'location',   placeholder:'Add location' },
     { label: p.startDate ? 'Started '+fmtDate(p.startDate) : null, field:'startDate', placeholder:'Add start date' },
     { label: p.endDate   ? 'Due '+fmtDate(p.endDate) : null,       field:'endDate',   placeholder:'Add end date' },
@@ -1852,15 +1963,13 @@ function renderProjectDetail(idx) {
     const estPct = p.budget>0 ? Math.round(laborEst/p.budget*100) : 0;
     const allocLabel = laborEst>0 ? ' <span style="font-size:0.65rem;color:var(--muted)">of $'+fmt(laborEst)+' est.</span>' : '';
     const col = (cs > laborEst && laborEst > 0) ? 'var(--red)' : p.color;
-    return '<div class="cat-row" style="cursor:pointer" onclick="toggleLaborEditPanel('+idx+')">' +
-      '<div class="cat-name" style="color:var(--blue-l);font-weight:600">⏱ Labor</div>' +
+    return '<div class="cat-row">' +
+      '<div class="cat-name" style="color:var(--blue-l);font-weight:600">⏱ Labor Estimate</div>' +
       renderBar(estPct, p.color, 5) +
       '<div class="cat-pct">'+estPct+'%'+allocLabel+'</div>' +
       '<div class="cat-amt">$'+fmt(laborEst)+' est.</div>' +
     '</div>' +
-    '<div id="labor-edit-panel-'+idx+'" style="display:none;background:rgba(26,109,232,0.04);border:1px solid rgba(26,109,232,0.15);border-radius:0.45em;padding:0.75em;margin:0.35em 0 0.5em">' +
-      renderLaborEditRows(idx) +
-    '</div>';
+    '';
   })() : '';
 
   const catsWithoutLabor = cats.filter(c => c !== 'Labor Estimate');
@@ -2462,11 +2571,13 @@ function pickColor(el) {
 let newProjCats = []; // [{name, pct}]  — "All" is implicit, not stored here
 let newProjLaborEnabled = true; // Labor Estimate chip toggle
 let newProjLaborWorkers = {}; // { uid: hoursPerWeek }
+let newProjLaborPct = null; // budget % for labor category
 
 function resetProjectModal() {
   newProjCats = [];
   newProjLaborEnabled = true;
   newProjLaborWorkers = {};
+  newProjLaborPct = null;
   // Populate assign workers checkboxes
   const npWorkersList = document.getElementById('np-workers-list');
   const npWorkersField = document.getElementById('np-workers-field');
@@ -2526,26 +2637,41 @@ function renderModalWorkersList() {
     const name = (m.firstName+' '+m.lastName).trim();
     const rate = m.hourlyRate || 0;
     const hrs  = newProjLaborWorkers[uid] || '';
-    return '<label style="display:flex;align-items:center;gap:0.6em;font-size:0.85rem;cursor:pointer;padding:0.3em 0" onclick="event.stopPropagation()">' +
-      '<input type="checkbox" data-uid="'+uid+'" onchange="onWorkerCheck()" style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> ' +
-      '<span style="flex:1">'+name+'</span>' +
+    const init = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
+    return '<label style="display:flex;align-items:center;gap:0.75em;padding:0.55em 0.7em;border-radius:0.5em;cursor:pointer;border:1px solid var(--border);background:var(--surface2);margin-bottom:0.3em" onclick="event.stopPropagation();npToggleWorker(this)">' +
+      '<input type="checkbox" data-uid="'+uid+'" style="display:none"/>' +
+      '<div style="width:32px;height:32px;border-radius:0.4em;background:var(--blue);display:grid;place-items:center;font-size:0.72rem;font-weight:700;color:#fff;flex-shrink:0">'+init+'</div>' +
+      '<span style="font-size:0.88rem;font-weight:600;flex:1">'+name+'</span>' +
       (newProjLaborEnabled
         ? '<input type="number" id="labor-hrs-'+uid+'" min="0" step="0.5" placeholder="hrs/wk" value="'+hrs+'" ' +
-          'style="width:5em;background:var(--surface2);border:1px solid var(--border2);border-radius:0.35em;padding:0.25em 0.45em;font-size:0.78rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" ' +
+          'style="width:5em;background:var(--surface);border:1px solid var(--border2);border-radius:0.35em;padding:0.25em 0.45em;font-size:0.78rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" ' +
           'oninput="setLaborHours(\''+uid+'\',this.value)" onclick="event.stopPropagation()" ' +
           'onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>'
         : '') +
       (rate > 0 && newProjLaborEnabled ? '<span style="font-size:0.7rem;color:var(--muted)">$'+rate+'/hr</span>' : '') +
+      '<div class="np-aw-check" style="width:22px;height:22px;border-radius:0.35em;border:2px solid var(--border2);background:transparent;display:grid;place-items:center;flex-shrink:0;transition:all 0.15s"></div>' +
     '</label>';
   }).join('') +
   (newProjLaborEnabled ? '<div style="display:flex;justify-content:space-between;font-size:0.73rem;font-weight:600;color:var(--blue-l);margin-top:0.4em;padding-top:0.35em;border-top:1px solid rgba(26,109,232,0.12)">' +
     '<span id="np-labor-weekly"></span><span id="np-labor-total"></span></div>' : '');
 }
 
-function onWorkerCheck() {
-  // Re-render to update which workers show hrs/wk
-  renderModalWorkersList();
+function npToggleWorker(label) {
+  const cb = label.querySelector('input[type=checkbox]');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  const checkBox = label.querySelector('.np-aw-check');
+  if (cb.checked) {
+    label.style.background = 'rgba(26,109,232,0.07)';
+    label.style.borderColor = 'rgba(26,109,232,0.3)';
+    if (checkBox) { checkBox.style.background = 'var(--blue)'; checkBox.style.borderColor = 'var(--blue)'; checkBox.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  } else {
+    label.style.background = 'var(--surface2)';
+    label.style.borderColor = 'var(--border)';
+    if (checkBox) { checkBox.style.background = 'transparent'; checkBox.style.borderColor = 'var(--border2)'; checkBox.innerHTML = ''; }
+  }
 }
+function onWorkerCheck() { /* no longer used — npToggleWorker handles it */ }
 
 function calcModalLaborEstimate() {
   const start = document.getElementById('np-start')?.value;
@@ -2617,6 +2743,7 @@ function renderCatChips() {
     '<div class="cat-chip" id="labor-chip" style="border-color:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.35)' : 'var(--border)') + ';background:' + (newProjLaborEnabled ? 'rgba(26,109,232,0.07)' : 'var(--surface2)') + ';cursor:pointer" onclick="toggleLaborChip()">' +
       '<span style="font-size:0.8rem;font-weight:600;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">Labor Estimate</span>' +
       (newProjLaborEnabled && laborTotal > 0 ? '<span class="cat-chip-pct" style="margin-left:0.4em">$' + fmt(laborTotal) + ' est.</span>' : '') +
+      (newProjLaborEnabled ? ' <span style="margin-left:0.3em;font-size:0.7rem;color:var(--muted)" onclick="event.stopPropagation()">budget: <input type="number" id="np-labor-pct" min="1" max="100" placeholder="%" value="' + (newProjLaborPct||'') + '" style="width:3em;background:var(--surface);border:1px solid var(--border2);border-radius:0.3em;padding:0.15em 0.3em;font-size:0.72rem;color:var(--text);font-family:DM Sans,sans-serif;outline:none;text-align:center" oninput="newProjLaborPct=parseInt(this.value)||null" onfocus="this.style.borderColor=\'var(--blue)\'" onblur="this.style.borderColor=\'var(--border2)\'"/>%</span>' : '') +
       '<span style="margin-left:auto;font-size:0.7rem;color:' + (newProjLaborEnabled ? 'var(--blue-l)' : 'var(--muted)') + '">' + (newProjLaborEnabled ? '✓ on' : 'off') + '</span>' +
     '</div>' +
     // Labor worker rows (only when enabled)
@@ -2688,7 +2815,7 @@ function saveNewProject() {
     endDate:         document.getElementById('np-end').value,
     color:           newProjColor,
     categories:      ['Labor Estimate', ...newProjCats.map(c => c.name)].filter((_,i) => i===0 ? newProjLaborEnabled : true),
-    catBudgets:      Object.fromEntries(newProjCats.filter(c=>c.pct).map(c=>[c.name, c.pct])),
+    catBudgets:      { ...(newProjLaborEnabled && newProjLaborPct ? {'Labor Estimate': newProjLaborPct} : {}), ...Object.fromEntries(newProjCats.filter(c=>c.pct).map(c=>[c.name, c.pct])) },
     laborEnabled:    newProjLaborEnabled,
     laborWorkers:    newProjLaborEnabled ? {...newProjLaborWorkers} : {},
     assignedWorkers: assignedWorkers,
@@ -2709,19 +2836,41 @@ function openAssignWorkersModal(idx) {
   const proj = DB.projects[idx];
   const assigned = proj.assignedWorkers || [];
   const list = document.getElementById('aw-list');
-  if (!DB.team.length) {
-    list.innerHTML = '<div style="font-size:0.82rem;color:var(--muted)">No team members yet.</div>';
+  const workers = DB.team.filter(m => (m.role||'').toLowerCase() !== 'admin');
+  if (!workers.length) {
+    list.innerHTML = '<div style="font-size:0.82rem;color:var(--muted)">No workers yet. Add workers from the Team tab.</div>';
   } else {
-    list.innerHTML = DB.team.map(m => {
-      const uid = m.user_id || m._id;
-      const name = (m.firstName+' '+m.lastName).trim();
-      const checked = assigned.includes(uid) ? 'checked' : '';
-      return '<label style="display:flex;align-items:center;gap:0.7em;font-size:0.88rem;cursor:pointer;padding:0.35em 0">' +
-        '<input type="checkbox" data-uid="'+uid+'" '+checked+' style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> '+name+'</label>';
+    list.innerHTML = workers.map(m => {
+      const uid     = m.user_id || m._id;
+      const name    = (m.firstName+' '+m.lastName).trim();
+      const isChecked = assigned.includes(uid);
+      const initials  = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
+      return '<label style="display:flex;align-items:center;gap:0.85em;padding:0.65em 0.75em;border-radius:0.55em;cursor:pointer;transition:background 0.12s;border:1px solid '+(isChecked?'rgba(26,109,232,0.3)':'var(--border)')+';background:'+(isChecked?'rgba(26,109,232,0.07)':'var(--surface2)')+'" onmouseover="if(!this.querySelector(\'input\').checked)this.style.background=\'var(--surface3)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'var(--surface2)\';else this.style.background=\'rgba(26,109,232,0.07)\';this.style.borderColor=this.querySelector(\'input\').checked?\'rgba(26,109,232,0.3)\':\'var(--border)\'">' +
+        '<input type="checkbox" data-uid="'+uid+'" '+(isChecked?'checked':'')+' style="display:none" onchange="updateAWRow(this)"/>' +
+        '<div style="width:36px;height:36px;border-radius:0.45em;background:var(--blue);display:grid;place-items:center;font-size:0.78rem;font-weight:700;color:#fff;flex-shrink:0">'+initials+'</div>' +
+        '<span style="font-size:0.92rem;font-weight:600;flex:1">'+name+'</span>' +
+        '<div style="width:22px;height:22px;border-radius:0.35em;border:2px solid '+(isChecked?'var(--blue)':'var(--border2)')+';background:'+(isChecked?'var(--blue)':'transparent')+';display:grid;place-items:center;flex-shrink:0;transition:all 0.15s">'+(isChecked?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')+'</div>' +
+      '</label>';
     }).join('');
   }
   openModal('assignWorkersModal');
 }
+function updateAWRow(cb) {
+  const label = cb.closest('label');
+  if (!label) return;
+  if (cb.checked) {
+    label.style.background = 'rgba(26,109,232,0.07)';
+    label.style.borderColor = 'rgba(26,109,232,0.3)';
+    const box = label.querySelector('div:last-child');
+    if (box) { box.style.background = 'var(--blue)'; box.style.borderColor = 'var(--blue)'; box.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  } else {
+    label.style.background = 'var(--surface2)';
+    label.style.borderColor = 'var(--border)';
+    const box = label.querySelector('div:last-child');
+    if (box) { box.style.background = 'transparent'; box.style.borderColor = 'var(--border2)'; box.innerHTML = ''; }
+  }
+}
+
 function saveAssignWorkers() {
   const idx = assignWorkersProjectIdx;
   if (idx === null) return;
