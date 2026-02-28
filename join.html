@@ -347,7 +347,18 @@ async function submitCreate() {
     const company = Array.isArray(companies) ? companies[0] : companies;
     if (!company?.id) throw new Error('Company creation failed — please try again');
 
-    // 3. Save session + company_id so dashboard can find it immediately
+    // 3. Insert owner into team_members so they appear in the team tab
+    await sbPost('team_members', {
+      company_id: company.id,
+      first_name: companyData.firstName,
+      last_name:  companyData.lastName,
+      email:      companyData.email,
+      role:       'Admin',
+      user_id:    userId,
+      joined_at:  Date.now()
+    }, token);
+
+    // 4. Save session + company_id so dashboard can find it immediately
     localStorage.setItem('forge_session', JSON.stringify(auth));
     localStorage.setItem('forge_company_id', company.id);
     window.location.href = 'dashboard.html';
