@@ -2509,9 +2509,9 @@ function setTxType(prefix, type) {
   const catEl = document.getElementById(catMap[prefix]);
   if (catEl) {
     if (type === 'income') {
-      catEl.innerHTML = '<option value="Revenue">Revenue</option>';
-      catEl.disabled = true;
-      catEl.style.opacity = '0.5';
+      catEl.innerHTML = ['Deposit','Progress Payment','Final Payment','Change Order Payment'].map(c=>'<option>'+c+'</option>').join('');
+      catEl.disabled = false;
+      catEl.style.opacity = '';
     } else {
       catEl.disabled = false;
       catEl.style.opacity = '';
