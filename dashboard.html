@@ -82,6 +82,12 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 .company-name { font-size: 1rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .company-plan { font-size: 0.78rem; color: var(--muted); margin-top: 0.1em; text-transform: capitalize; }
 
+/* TRANSACTION TYPE TOGGLE */
+.type-toggle { display:flex;border:1px solid var(--border2);border-radius:0.45em;overflow:hidden;flex-shrink:0; }
+.type-toggle button { flex:1;padding:0.52em 0.9em;border:none;background:none;cursor:pointer;font-size:0.82rem;font-weight:600;color:var(--muted);transition:all 0.12s;font-family:'DM Sans',sans-serif; }
+.type-toggle button.active-expense { background:rgba(232,64,64,0.15);color:var(--red); }
+.type-toggle button.active-income  { background:rgba(34,197,94,0.15);color:#22c55e; }
+
 /* ALERTS BADGE */
 .nav-badge { margin-left: auto; min-width: 1.25em; height: 1.25em; border-radius: 0.65em; background: var(--red); color: #fff; font-size: 0.62rem; font-weight: 700; display: grid; place-items: center; padding: 0 0.3em; }
 
@@ -347,31 +353,49 @@ tr:hover td { background: rgba(255,255,255,0.015); }
   <div class="modal" style="max-width:400px">
     <div class="modal-head">
       <div>
-        <div class="modal-title">Add Purchase</div>
+        <div class="modal-title">Add Transaction</div>
         <div id="qpu-proj-label" style="font-size:0.75rem;color:var(--muted);margin-top:0.15em"></div>
       </div>
       <button class="modal-close" onclick="closeModal('quickPurchaseModal')">✕</button>
     </div>
     <div class="field"><label>Vendor / Description</label><input type="text" id="qpu-vendor" placeholder="Home Depot"/></div>
     <div class="modal-row">
-      <div class="field"><label>Amount ($)</label><input type="number" id="qpu-amount" placeholder="0.00" min="0" step="0.01"/></div>
+      <div class="field">
+        <label>Amount ($)</label>
+        <div style="display:flex;gap:0.5em;align-items:center">
+          <div class="type-toggle" id="qpu-type-toggle">
+            <button id="qpu-btn-expense" class="active-expense" onclick="setTxType('qpu','expense')">− Expense</button>
+            <button id="qpu-btn-income" onclick="setTxType('qpu','income')">+ Income</button>
+          </div>
+          <input type="number" id="qpu-amount" placeholder="0.00" min="0" step="0.01" style="flex:1"/>
+        </div>
+      </div>
       <div class="field"><label>Category</label><select id="qpu-category"></select></div>
     </div>
     <div class="field"><label>Notes (optional)</label><textarea id="qpu-notes" rows="2" placeholder="Any details..." style="resize:none"></textarea></div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal('quickPurchaseModal')">Cancel</button>
-      <button class="btn-save" onclick="saveQuickPurchase()">Add Purchase</button>
+      <button class="btn-save" onclick="saveQuickPurchase()">Add Transaction</button>
     </div>
   </div>
 </div>
 
-<!-- FULL ADD PURCHASE (from purchases tab / other views) -->
+<!-- FULL ADD TRANSACTION (from transactions tab / other views) -->
 <div class="modal-bg" id="newPurchaseModal">
   <div class="modal">
-    <div class="modal-head"><div class="modal-title">Add Purchase</div><button class="modal-close" onclick="closeModal('newPurchaseModal')">✕</button></div>
+    <div class="modal-head"><div class="modal-title">Add Transaction</div><button class="modal-close" onclick="closeModal('newPurchaseModal')">✕</button></div>
     <div class="modal-row">
       <div class="field"><label>Vendor / Description</label><input type="text" id="pu-vendor" placeholder="Home Depot"/></div>
-      <div class="field"><label>Amount ($)</label><input type="number" id="pu-amount" placeholder="0.00" min="0" step="0.01"/></div>
+      <div class="field">
+        <label>Amount ($)</label>
+        <div style="display:flex;gap:0.5em;align-items:center">
+          <div class="type-toggle" id="pu-type-toggle">
+            <button id="pu-btn-expense" class="active-expense" onclick="setTxType('pu','expense')">− Expense</button>
+            <button id="pu-btn-income" onclick="setTxType('pu','income')">+ Income</button>
+          </div>
+          <input type="number" id="pu-amount" placeholder="0.00" min="0" step="0.01" style="flex:1"/>
+        </div>
+      </div>
     </div>
     <div class="modal-row">
       <div class="field"><label>Project</label><select id="pu-project" onchange="updatePurchaseCats()"></select></div>
@@ -384,7 +408,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
     <div class="field"><label>Notes (optional)</label><textarea id="pu-notes" rows="2" placeholder="Any details..." style="resize:none"></textarea></div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal('newPurchaseModal')">Cancel</button>
-      <button class="btn-save" onclick="saveNewPurchase()">Add Purchase</button>
+      <button class="btn-save" onclick="saveNewPurchase()">Add Transaction</button>
     </div>
   </div>
 </div>
@@ -393,7 +417,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 <div class="modal-bg" id="purchaseDetailModal">
   <div class="modal" style="max-width:420px">
     <div class="modal-head">
-      <div class="modal-title">Purchase Details</div>
+      <div class="modal-title">Transaction Details</div>
       <button class="modal-close" onclick="closeModal('purchaseDetailModal')">✕</button>
     </div>
     <!-- VIEW MODE -->
@@ -424,14 +448,23 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
       <div style="display:flex;justify-content:space-between;gap:0.6em">
         <button class="btn-cancel" style="color:var(--red);border-color:rgba(232,64,64,0.3)" onclick="deletePurchaseFromDetail()">Delete</button>
-        <button class="btn-save" onclick="switchToEditMode()">Edit Purchase</button>
+        <button class="btn-save" onclick="switchToEditMode()">Edit Transaction</button>
       </div>
     </div>
     <!-- EDIT MODE -->
     <div id="pd-edit" style="display:none">
       <div class="field"><label>Vendor / Description</label><input type="text" id="pd-edit-vendor"/></div>
       <div class="modal-row">
-        <div class="field"><label>Amount ($)</label><input type="number" id="pd-edit-amount" min="0" step="0.01"/></div>
+        <div class="field">
+          <label>Amount ($)</label>
+          <div style="display:flex;gap:0.5em;align-items:center">
+            <div class="type-toggle" id="pd-type-toggle">
+              <button id="pd-btn-expense" class="active-expense" onclick="setTxType('pd','expense')">− Expense</button>
+              <button id="pd-btn-income" onclick="setTxType('pd','income')">+ Income</button>
+            </div>
+            <input type="number" id="pd-edit-amount" min="0" step="0.01" style="flex:1"/>
+          </div>
+        </div>
         <div class="field"><label>Category</label><select id="pd-edit-category"></select></div>
       </div>
       <div class="modal-row">
@@ -539,7 +572,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         </div>
         <div class="nav-item" onclick="showView('purchases')" id="nav-purchases">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="1" width="10" height="12" rx="1.2" stroke="currentColor" stroke-width="1.4"/><path d="M4 5h6M4 8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Purchases
+          Transactions
         </div>
         <div class="nav-item" onclick="showView('team')" id="nav-team">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="5" cy="4.5" r="2" stroke="currentColor" stroke-width="1.4"/><path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10 6.5c1.1 0 2 .9 2 2M10 12h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
@@ -603,7 +636,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <div class="empty-state" id="dashEmpty" style="display:none">
               <div class="empty-icon">📋</div>
               <div class="empty-title">No projects yet</div>
-              <div class="empty-sub">Create your first project to start tracking budgets and purchases.</div>
+              <div class="empty-sub">Create your first project to start tracking budgets and transactions.</div>
               <button class="tb-btn primary" style="margin-top:0.5em" onclick="openModal('newProjModal')">+ New Project</button>
             </div>
           </div>
@@ -640,19 +673,19 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <div class="page-sub" id="projDetailMeta"></div>
           </div>
           <div style="display:flex;gap:0.6em">
-            <button class="tb-btn primary" onclick="openQuickPurchase()">+ Add Purchase</button>
+            <button class="tb-btn primary" onclick="openQuickPurchase()">+ Add Transaction</button>
             <button class="tb-btn" style="color:var(--red);border-color:rgba(232,64,64,0.25)" onclick="deleteCurrentProject()">Delete</button>
           </div>
         </div>
         <div class="stats-row" id="projStats"></div>
         <div class="budget-section" id="projBudgetSection"></div>
         <div class="table-wrap" style="margin-top:1.5em">
-          <div class="table-head"><div class="table-title">Purchases</div><button class="tb-btn" onclick="openQuickPurchase()">+ Add</button></div>
+          <div class="table-head"><div class="table-title">Transactions</div><button class="tb-btn" onclick="openQuickPurchase()">+ Add</button></div>
           <table><thead><tr><th>Vendor</th><th>Category</th><th>Amount</th><th>Added By</th><th>Date</th></tr></thead><tbody id="projPurchasesTable"></tbody></table>
           <div class="empty-state" id="projPurchasesEmpty" style="display:none;min-height:12em">
             <div class="empty-icon" style="font-size:1.5rem">🧾</div>
-            <div class="empty-title" style="font-size:1rem">No purchases yet</div>
-            <div class="empty-sub" style="font-size:0.8rem">Add your first purchase to track spend.</div>
+            <div class="empty-title" style="font-size:1rem">No transactions yet</div>
+            <div class="empty-sub" style="font-size:0.8rem">Add your first transaction to track spend.</div>
           </div>
         </div>
       </div>
@@ -660,14 +693,14 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <!-- ALL PURCHASES -->
       <div class="view" id="view-purchases">
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div class="page-title">All Purchases</div><div class="page-sub">Every purchase across all projects.</div></div>
-          <button class="tb-btn primary" onclick="openAddPurchase()">+ Add Purchase</button>
+          <div><div class="page-title">Transactions</div><div class="page-sub">All transactions across every project.</div></div>
+          <button class="tb-btn primary" onclick="openAddPurchase()">+ Add Transaction</button>
         </div>
         <div class="table-wrap">
           <table><thead><tr><th>Vendor</th><th>Project</th><th>Category</th><th>Amount</th><th>Added By</th><th>Date</th><th></th></tr></thead><tbody id="allPurchasesTable"></tbody></table>
           <div class="empty-state" id="allPurchasesEmpty" style="display:none;min-height:16em">
-            <div class="empty-icon">🧾</div><div class="empty-title">No purchases yet</div>
-            <div class="empty-sub">Add purchases from any project to see them here.</div>
+            <div class="empty-icon">🧾</div><div class="empty-title">No transactions yet</div>
+            <div class="empty-sub">Add transactions from any project to see them here.</div>
           </div>
         </div>
       </div>
@@ -723,7 +756,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         <div class="empty-state" id="reportsEmpty" style="display:none">
           <div class="empty-icon">📊</div>
           <div class="empty-title">No projects to report on</div>
-          <div class="empty-sub">Create a project and log some purchases to generate your first report.</div>
+          <div class="empty-sub">Create a project and log some transactions to generate your first report.</div>
         </div>
       </div>
     </div>
@@ -1011,7 +1044,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         </div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.55em;padding:0.85em;text-align:center">
           <div id="mdPurchases" style="font-size:1.1rem;font-weight:700"></div>
-          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.2em">purchases</div>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.2em">transactions</div>
         </div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.55em;padding:0.85em;text-align:center">
           <div id="mdProjects" style="font-size:1.1rem;font-weight:700"></div>
@@ -1029,7 +1062,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <span id="mdJoined" style="font-size:0.85rem;color:var(--text2)"></span>
         </div>
       </div>
-      <!-- Recent purchases -->
+      <!-- Recent transactions -->
       <div id="mdPurchasesList" style="margin-top:1.25em"></div>
     </div>
     <div class="modal-foot" id="mdFooter">
@@ -1183,6 +1216,7 @@ async function sbSavePurchase(pu, localIdx) {
     project_id: proj._id,
     vendor: pu.vendor,
     amount: pu.amount,
+    type: pu.type || 'expense',
     category: pu.category || null,
     date: pu.date || null,
     notes: pu.notes || null,
@@ -1313,7 +1347,7 @@ async function loadFromSupabase() {
       purchases: purchases.map(pu => {
         const projectIdx = projects.findIndex(p => p.id === pu.project_id);
         return {
-          _id: pu.id, vendor: pu.vendor, amount: pu.amount,
+          _id: pu.id, vendor: pu.vendor, amount: pu.amount, type: pu.type || (pu.amount >= 0 ? 'income' : 'expense'),
           category: pu.category, date: pu.date, notes: pu.notes,
           worker: pu.worker, ts: pu.ts, projectIdx
         };
@@ -1380,7 +1414,7 @@ function calcBurnRate(projectIdx) {
   const start  = new Date(p.startDate+'T00:00:00').getTime();
   const now    = Date.now();
   const daysSinceStart = Math.max(1, (now - start) / 86400000);
-  const spent  = pus.reduce((s,x) => s + x.amount, 0);
+  const spent  = spentFromPurchases(pus);
   const dailyBurn = spent / daysSinceStart;
   const remaining = p.budget - spent;
   if (dailyBurn <= 0) return null;
@@ -1393,13 +1427,13 @@ function computeAlerts() {
   const alerts = [];
   DB.projects.forEach((p, idx) => {
     const pus   = DB.purchases.filter(x => x.projectIdx === idx);
-    const spent = pus.reduce((s,x) => s + x.amount, 0);
+    const spent = spentFromPurchases(pus);
     const pct   = p.budget > 0 ? spent / p.budget : 0;
 
     if (pct >= 1) {
       alerts.push({ severity:'critical', title:p.name+' is over budget', desc:'Spent $'+fmt(spent)+' of $'+fmt(p.budget)+' budget — $'+fmt(spent-p.budget)+' over.', projectIdx:idx });
     } else if (pct >= 0.9) {
-      alerts.push({ severity:'high', title:p.name+' is at '+Math.round(pct*100)+'% of budget', desc:'Only $'+fmt(p.budget-spent)+' remaining. Review spending before adding more purchases.', projectIdx:idx });
+      alerts.push({ severity:'high', title:p.name+' is at '+Math.round(pct*100)+'% of budget', desc:'Only $'+fmt(p.budget-spent)+' remaining. Review spending before adding more transactions.', projectIdx:idx });
     } else if (pct >= 0.75) {
       alerts.push({ severity:'medium', title:p.name+' is at '+Math.round(pct*100)+'% of budget', desc:'$'+fmt(p.budget-spent)+' remaining across all categories.', projectIdx:idx });
     }
@@ -1485,7 +1519,7 @@ function renderSidebar() {
   const el = document.getElementById('sidebarProjects');
   if (!DB.projects.length) { el.innerHTML = '<div style="font-size:0.75rem;color:var(--muted);padding:0.3em 0.6em">No projects yet</div><button class="btn-new-proj" style="width:100%;margin:0.4em 0 0.2em" onclick="openModal(\'newProjModal\')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> New Project</button>'; return; }
   el.innerHTML = DB.projects.map((p,i) => {
-    const spent = DB.purchases.filter(x=>x.projectIdx===i).reduce((s,x)=>s+x.amount,0);
+    const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
     const pct   = p.budget>0 ? Math.min(100,Math.round(spent/p.budget*100)) : 0;
     const col   = pct>90?'var(--red)':pct>70?'var(--orange)':'var(--green)';
     return '<div class="proj-item '+(activeProject===i?'active':'')+'" onclick="openProject('+i+')"><div class="proj-dot" style="background:'+p.color+'"></div><div class="proj-name">'+p.name+'</div><span style="font-size:0.65rem;font-weight:700;color:'+col+';margin-left:auto;flex-shrink:0">'+pct+'%</span></div>';
@@ -1562,7 +1596,7 @@ function renderDashboard() {
   else {
     empty.style.display = 'none';
     grid.innerHTML = DB.projects.map((p,i) => {
-      const spent = DB.purchases.filter(x=>x.projectIdx===i).reduce((s,x)=>s+x.amount,0);
+      const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
       const pp    = p.budget>0 ? Math.round(spent/p.budget*100) : 0;
       const col   = pp>90?'var(--red)':pp>70?'var(--orange)':'var(--green)';
       const burn  = calcBurnRate(i);
@@ -1574,7 +1608,7 @@ function renderDashboard() {
 
   // At Risk panel
   const riskProjects = DB.projects.map((p,i) => {
-    const spent = DB.purchases.filter(x=>x.projectIdx===i).reduce((s,x)=>s+x.amount,0);
+    const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
     return Object.assign({},p,{idx:i,spent,pct:p.budget>0?spent/p.budget:0});
   }).filter(p=>p.pct>=0.7).sort((a,b)=>b.pct-a.pct);
 
@@ -1597,7 +1631,7 @@ function renderDashboard() {
   const feed   = document.getElementById('activityFeed');
   const recent = [...DB.purchases].map((p,i)=>Object.assign({},p,{_i:i})).filter(p=>p.ts).sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,8);
   if (!recent.length) {
-    feed.innerHTML = '<div style="padding:1.1em 1.2em;font-size:0.82rem;color:var(--muted)">No purchases logged yet.</div>';
+    feed.innerHTML = '<div style="padding:1.1em 1.2em;font-size:0.82rem;color:var(--muted)">No transactions logged yet.</div>';
   } else {
     feed.innerHTML = recent.map(pu => {
       const proj = DB.projects[pu.projectIdx];
@@ -1645,7 +1679,7 @@ function renderProjectDetail(idx) {
   // Stat cards — budget one is editable
   const burnStat = burn
     ? '<div class="stat-card s-blue"><div class="stat-lbl">Burn Rate</div><div class="stat-val c-blue">$'+fmt(Math.round(burn.dailyBurn))+'</div><div class="stat-note">per day · '+(burn.daysLeft>0?burn.daysLeft+' days of budget left':'over budget')+'</div></div>'
-    : '<div class="stat-card s-blue"><div class="stat-lbl">Purchases</div><div class="stat-val c-blue">'+pus.length+'</div><div class="stat-note">transactions logged</div></div>';
+    : '<div class="stat-card s-blue"><div class="stat-lbl">Transactions</div><div class="stat-val c-blue">'+pus.length+'</div><div class="stat-note">transactions logged</div></div>';
 
   document.getElementById('projStats').innerHTML =
         '<div class="stat-card s-blue editable" onclick="editProjectField(&apos;budget&apos;)" title="Click to edit budget">'+
@@ -1654,7 +1688,7 @@ function renderProjectDetail(idx) {
       '<div class="stat-note">Set at project start</div>'+
       '<div class="stat-edit-hint">✎ Click to edit</div>'+
     '</div>'+
-    '<div class="stat-card '+(pct>70?'s-orange':'s-green')+'"><div class="stat-lbl">Spent</div><div class="stat-val '+(pct>90?'c-red':pct>70?'c-orange':'')+'">$'+fmt(spent)+'</div><div class="stat-note">'+pus.length+' purchase'+(pus.length!==1?'s':'')+'</div></div>'+
+    '<div class="stat-card '+(pct>70?'s-orange':'s-green')+'"><div class="stat-lbl">Spent</div><div class="stat-val '+(pct>90?'c-red':pct>70?'c-orange':'')+'">$'+fmt(spent)+'</div><div class="stat-note">'+pus.length+' transaction'+(pus.length!==1?'s':'')+'</div></div>'+
     '<div class="stat-card '+(rem<0?'s-red':'s-green')+'"><div class="stat-lbl">Remaining</div><div class="stat-val '+(rem<0?'c-red':'c-green')+'">$'+fmt(Math.abs(rem))+(rem<0?' over':'')+'</div><div class="stat-note">'+pct+'% used</div></div>'+
     burnStat;
 
@@ -1690,7 +1724,7 @@ function renderProjectDetail(idx) {
     return '<tr class="pu-row" onclick="openPurchaseDetail('+gi+')" title="Click for details">'+
       '<td><strong>'+pu.vendor+'</strong></td>'+
       '<td><span class="tag tag-blue">'+(pu.category||'—')+'</span></td>'+
-      '<td><strong>$'+fmt(pu.amount)+'</strong></td>'+
+      '<td><strong style="color:'+((!pu.type&&pu.amount>=0)||pu.type==='income'?'#22c55e':'var(--red)')+'">'+((!pu.type&&pu.amount>=0)||pu.type==='income'?'+':'-')+'$'+fmt(Math.abs(pu.amount))+'</strong></td>'+
       '<td style="color:var(--text2)">'+(pu.worker||'—')+'</td>'+
       '<td style="color:var(--muted)">'+fmtDate(pu.date)+'</td>'+
     '</tr>';
@@ -1698,6 +1732,11 @@ function renderProjectDetail(idx) {
 }
 
 // ══ ALL PURCHASES ══
+// Helper: signed amount (negative=expense, positive=income)
+function txAmount(pu) { return pu.amount; } // already signed
+function spentFromPurchases(pus) { return pus.reduce((s,x) => s + (x.amount < 0 ? Math.abs(x.amount) : 0), 0); }
+function incomeFromPurchases(pus) { return pus.reduce((s,x) => s + (x.amount > 0 ? x.amount : 0), 0); }
+
 function renderAllPurchases() {
   const tbody = document.getElementById('allPurchasesTable');
   const empty = document.getElementById('allPurchasesEmpty');
@@ -1897,7 +1936,7 @@ function renderTeam() {
   grid.innerHTML = fullTeam.map((m, i) => {
     const init    = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
     const col     = AVATAR_COLORS[i % AVATAR_COLORS.length];
-    const spend   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).reduce((s,p)=>s+p.amount,0);
+    const spend   = spentFromPurchases(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)));
     const count   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).length;
     const projSet = new Set(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).map(p=>p.projectIdx));
     const role    = (m.role||'worker').toLowerCase();
@@ -1956,7 +1995,7 @@ function renderTeam() {
         </div>
         <div style="text-align:center;border-left:1px solid var(--border)">
           <div class="member-stat-val">${count}</div>
-          <div class="member-stat-lbl">purchases</div>
+          <div class="member-stat-lbl">transactions</div>
         </div>
         <div style="text-align:center;border-left:1px solid var(--border)">
           <div class="member-stat-val">${projSet.size}</div>
@@ -2143,7 +2182,7 @@ function renderReports() {
   if (!DB.projects.length) { grid.innerHTML=''; empty.style.display='flex'; return; }
   empty.style.display='none';
   grid.innerHTML = DB.projects.map((p,i) => {
-    const spent = DB.purchases.filter(x=>x.projectIdx===i).reduce((s,x)=>s+x.amount,0);
+    const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
     const pct   = p.budget>0?Math.round(spent/p.budget*100):0;
     return '<div class="report-card" onclick="window.open(getReportURL('+i+'),\'_blank\')"><div class="report-icon" style="background:'+p.color+'22"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="'+p.color+'" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="'+p.color+'" stroke-width="1.3" stroke-linecap="round"/></svg></div><div class="report-info"><div class="report-name">'+p.name+'</div><div class="report-desc">$'+fmt(spent)+' spent · '+pct+'% of budget · '+DB.purchases.filter(x=>x.projectIdx===i).length+' purchases</div></div><button class="tb-btn primary" style="font-size:0.75rem;padding:0.3em 0.7em;flex-shrink:0" onclick="event.stopPropagation();exportReport('+i+')">Share</button></div>';
   }).join('');
@@ -2323,6 +2362,17 @@ function saveNewProject() {
 }
 
 // ══ QUICK ADD PURCHASE (from project detail) ══
+// ── Transaction type toggle ──
+let txType = { qpu: 'expense', pu: 'expense', pd: 'expense' };
+function setTxType(prefix, type) {
+  txType[prefix] = type;
+  const expBtn = document.getElementById(prefix+'-btn-expense');
+  const incBtn = document.getElementById(prefix+'-btn-income');
+  if (expBtn) { expBtn.className = type === 'expense' ? 'active-expense' : ''; }
+  if (incBtn) { incBtn.className = type === 'income'  ? 'active-income'  : ''; }
+}
+function resetTxType(prefix) { setTxType(prefix, 'expense'); }
+
 function openQuickPurchase() {
   if (activeProject === null) return;
   const p    = DB.projects[activeProject];
@@ -2332,6 +2382,7 @@ function openQuickPurchase() {
   document.getElementById('qpu-vendor').value  = '';
   document.getElementById('qpu-amount').value  = '';
   document.getElementById('qpu-notes').value   = '';
+  resetTxType('qpu');
   openModal('quickPurchaseModal');
   setTimeout(() => document.getElementById('qpu-vendor').focus(), 80);
 }
@@ -2340,8 +2391,10 @@ function saveQuickPurchase() {
   const amount = parseFloat(document.getElementById('qpu-amount').value);
   if (!vendor || isNaN(amount) || amount <= 0) { document.getElementById(!vendor?'qpu-vendor':'qpu-amount').focus(); return; }
   const me = ((DB.firstName||'')+' '+(DB.lastName||'')).trim() || 'Admin';
+  const signedAmount = txType['qpu'] === 'income' ? Math.abs(amount) : -Math.abs(amount);
   const pu = {
-    vendor, amount,
+    vendor, amount: signedAmount,
+    type: txType['qpu'],
     projectIdx: activeProject,
     category:   document.getElementById('qpu-category').value,
     date:       new Date().toISOString().split('T')[0],
@@ -2359,7 +2412,7 @@ function saveQuickPurchase() {
 
 // ══ FULL ADD PURCHASE (from other views) ══
 function openAddPurchase() {
-  if (!DB.projects.length) { showAlert('Create a project first, then you can add purchases to it.', 'No Projects Yet'); return; }
+  if (!DB.projects.length) { showAlert('Create a project first, then you can add transactions to it.', 'No Projects Yet'); return; }
   const ps = document.getElementById('pu-project');
   ps.innerHTML = DB.projects.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join('');
   if (activeProject!==null) ps.value = activeProject;
@@ -2367,6 +2420,7 @@ function openAddPurchase() {
   const ws = document.getElementById('pu-worker');
   ws.innerHTML = '<option>'+(DB.firstName||'')+' '+(DB.lastName||'')+' (you)</option>'+DB.team.map(m=>'<option>'+m.firstName+' '+m.lastName+'</option>').join('');
   document.getElementById('pu-date').value = new Date().toISOString().split('T')[0];
+  resetTxType('pu');
   openModal('newPurchaseModal');
 }
 function updatePurchaseCats() {
@@ -2378,7 +2432,8 @@ function saveNewPurchase() {
   const vendor = document.getElementById('pu-vendor').value.trim();
   const amount = parseFloat(document.getElementById('pu-amount').value);
   if (!vendor||isNaN(amount)||amount<=0) { document.getElementById(!vendor?'pu-vendor':'pu-amount').focus(); return; }
-  const pu2 = { vendor, amount, projectIdx:parseInt(document.getElementById('pu-project').value), category:document.getElementById('pu-category').value, date:document.getElementById('pu-date').value, worker:document.getElementById('pu-worker').value, notes:document.getElementById('pu-notes').value.trim(), ts:Date.now() };
+  const signedAmount2 = txType['pu'] === 'income' ? Math.abs(amount) : -Math.abs(amount);
+  const pu2 = { vendor, amount: signedAmount2, type: txType['pu'], projectIdx:parseInt(document.getElementById('pu-project').value), category:document.getElementById('pu-category').value, date:document.getElementById('pu-date').value, worker:document.getElementById('pu-worker').value, notes:document.getElementById('pu-notes').value.trim(), ts:Date.now() };
   DB.purchases.push(pu2);
   const pu2Idx = DB.purchases.length - 1;
   ['pu-vendor','pu-amount','pu-notes'].forEach(id=>document.getElementById(id).value='');
@@ -2394,7 +2449,10 @@ let activePurchaseIdx = null;
 function openPurchaseDetail(globalIdx) {
   activePurchaseIdx = globalIdx;
   const pu = DB.purchases[globalIdx];
-  document.getElementById('pd-amount').textContent   = '$'+fmt(pu.amount);
+  const pdType = pu.type || (pu.amount >= 0 ? 'income' : 'expense');
+  const pdAmtEl = document.getElementById('pd-amount');
+  pdAmtEl.textContent = (pdType === 'income' ? '+' : '-') + '$' + fmt(Math.abs(pu.amount));
+  pdAmtEl.style.color = pdType === 'income' ? '#22c55e' : 'var(--red)';
   document.getElementById('pd-category').textContent = pu.category||'—';
   document.getElementById('pd-vendor').textContent   = pu.vendor;
   document.getElementById('pd-date').textContent     = fmtDate(pu.date);
@@ -2448,14 +2506,14 @@ function savePurchaseEdit() {
 }
 
 function deletePurchaseFromDetail() {
-  showConfirm('This purchase will be permanently deleted.', () => {
+  showConfirm('This transaction will be permanently deleted.', () => {
     const _pu = DB.purchases[activePurchaseIdx];
     sbDeletePurchase(_pu).catch(console.error);
     DB.purchases.splice(activePurchaseIdx, 1);
     closeModal('purchaseDetailModal');
     renderAll();
     if (activeView==='project'&&activeProject!==null) renderProjectDetail(activeProject);
-  }, 'Delete Purchase?', 'Delete', true);
+  }, 'Delete Transaction?', 'Delete', true);
 }
 
 // ══ EDIT PROJECT FIELDS ══
@@ -2596,7 +2654,7 @@ function saveNewMember() {
 
 // ══ DELETE ══
 function deletePurchase(idx) {
-  showConfirm('This purchase will be permanently deleted.', () => { const _dp=DB.purchases[idx]; sbDeletePurchase(_dp).catch(console.error); DB.purchases.splice(idx,1); renderAll(); if (activeView==='project'&&activeProject!==null) renderProjectDetail(activeProject); }, 'Delete Purchase?', 'Delete', true); return;
+  showConfirm('This transaction will be permanently deleted.', () => { const _dp=DB.purchases[idx]; sbDeletePurchase(_dp).catch(console.error); DB.purchases.splice(idx,1); renderAll(); if (activeView==='project'&&activeProject!==null) renderProjectDetail(activeProject); }, 'Delete Transaction?', 'Delete', true); return;
 }
 function deleteMember(idx) {
   showConfirm('This member will be removed from your team.', () => { const _dm=DB.team[idx]; sbDeleteTeamMember(_dm).catch(console.error); DB.team.splice(idx,1); renderTeam(); }, 'Remove Member?', 'Remove', true); return;
@@ -2789,7 +2847,7 @@ function openMemberDetail(teamIdx) {
   if (!m) return;
   const col   = AVATAR_COLORS[teamIdx % AVATAR_COLORS.length];
   const init  = ((m.firstName||'?')[0]+(m.lastName||'?')[0]).toUpperCase();
-  const spend = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).reduce((s,p)=>s+p.amount,0);
+  const spend = spentFromPurchases(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)));
   const buys  = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName));
   const projSet = new Set(buys.map(p=>p.projectIdx));
   const role  = (m.role||'worker').toLowerCase();
@@ -2812,12 +2870,12 @@ function openMemberDetail(teamIdx) {
   // Recent purchases
   const recent = buys.slice(0,5);
   document.getElementById('mdPurchasesList').innerHTML = recent.length
-    ? `<div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.5em">Recent Purchases</div>` +
+    ? `<div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.5em">Recent Transactions</div>` +
       recent.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5em 0;border-top:1px solid var(--border)">
         <div><div style="font-size:0.83rem;font-weight:500">${p.vendor||'Unknown'}</div><div style="font-size:0.72rem;color:var(--muted)">${p.category||''} · ${fmtDate(p.date)}</div></div>
         <span style="font-size:0.88rem;font-weight:700;flex-shrink:0;margin-left:0.75em">$${fmt(p.amount)}</span>
       </div>`).join('')
-    : `<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:1em 0">No purchases yet</div>`;
+    : `<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:1em 0">No transactions yet</div>`;
 
   // Footer — admin can manage
   const isPrimaryAdmin = DB.role === 'admin';
