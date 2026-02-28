@@ -1306,8 +1306,7 @@ async function loadFromSupabase() {
       role:        isWorker ? 'worker' : 'admin',
       // For workers: load the actual admin's name from their team_members row (owner has owner_id on company)
       // We find the admin by looking for the team_members row where user_id = co.owner_id
-      adminFirstName: isWorker ? (co.owner_first_name || 'Admin') : (meta.first_name || 'Admin'),
-      adminLastName:  isWorker ? (co.owner_last_name  || '')      : (meta.last_name  || ''),
+
       projects: projects.map(p => ({
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
@@ -1899,13 +1898,7 @@ function renderTeam() {
   const teamDotBtn = document.getElementById('teamDotBtn');
   if (teamDotBtn) teamDotBtn.style.display = isPrimaryAdmin ? '' : 'none';
   const currentUid = getSession()?.user?.id;
-  const ownerEntry = {
-    _id: null,
-    firstName: DB.adminFirstName || 'Admin',
-    lastName:  DB.adminLastName  || '',
-    email: '', role: 'owner', isOwner: true, isYou: isPrimaryAdmin, user_id: null
-  };
-  const fullTeam = [ownerEntry, ...DB.team].sort((a, b) => {
+  const fullTeam = [...DB.team].sort((a, b) => {
     const la = (a.lastName || '').trim().toLowerCase();
     const lb = (b.lastName || '').trim().toLowerCase();
     if (!la && !lb) return 0;
@@ -1923,9 +1916,9 @@ function renderTeam() {
     const count   = DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).length;
     const projSet = new Set(DB.purchases.filter(p=>p.worker&&p.worker.startsWith(m.firstName)).map(p=>p.projectIdx));
     const role    = (m.role||'worker').toLowerCase();
-    const isOwner = !!m.isOwner;
+    const isOwner = false; // everyone is in team_members now, no special owner entry
     const currentUid = getSession()?.user?.id;
-    const isYou = !!m.isYou || (!!currentUid && m.user_id === currentUid);
+    const isYou = !!currentUid && m.user_id === currentUid;
 
     const adminStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(217,149,32,0.15);color:#d99520;border:1px solid rgba(217,149,32,0.25)`;
     const workerStyle = `display:inline-flex;align-items:center;padding:0.2em 0.6em;border-radius:0.3em;font-size:0.67rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:rgba(26,109,232,0.12);color:var(--blue-l);border:1px solid rgba(26,109,232,0.2)`;
