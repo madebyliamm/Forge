@@ -341,6 +341,10 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
     </div>
 
+    <div id="np-workers-field" class="field" style="margin-bottom:0.5em">
+      <label>Assign Workers</label>
+      <div id="np-workers-list" style="display:flex;flex-direction:column;gap:0.4em;max-height:9em;overflow-y:auto"></div>
+    </div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeModal('newProjModal')">Cancel</button>
       <button class="btn-save" onclick="saveNewProject()">Create Project</button>
@@ -1191,7 +1195,8 @@ async function sbSaveProject(proj, localIdx) {
     end_date: proj.endDate || null,
     color: proj.color || '#3b82f6',
     categories: categoriesPayload,
-    sort_order: localIdx
+    sort_order: localIdx,
+    assigned_workers: proj.assignedWorkers || []
   };
   if (proj._id) {
     await sbPatch('projects', 'id=eq.' + proj._id, payload);
@@ -1330,6 +1335,7 @@ async function loadFromSupabase() {
         _id: p.id, name: p.name, client: p.client,
         location: p.location, budget: p.budget,
         startDate: p.start_date, endDate: p.end_date || null, color: p.color,
+        assignedWorkers: p.assigned_workers || [],
         // categories stored as [{name, pct}] — rebuild flat arrays for app use
         categories: (p.categories || []).map(c => typeof c === 'object' ? c.name : c),
         catBudgets: Object.fromEntries(
@@ -1512,7 +1518,8 @@ function renderAll() {
 function renderSidebar() {
   const el = document.getElementById('sidebarProjects');
   if (!DB.projects.length) { el.innerHTML = '<div style="font-size:0.75rem;color:var(--muted);padding:0.3em 0.6em">No projects yet</div><button class="btn-new-proj" style="width:100%;margin:0.4em 0 0.2em" onclick="openModal(\'newProjModal\')"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> New Project</button>'; return; }
-  el.innerHTML = DB.projects.map((p,i) => {
+  el.innerHTML = visibleProjects().map(i => {
+    const p = DB.projects[i];
     const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
     const pct   = p.budget>0 ? Math.min(100,Math.round(spent/p.budget*100)) : 0;
     const col   = pct>90?'var(--red)':pct>70?'var(--orange)':'var(--green)';
@@ -1593,7 +1600,8 @@ function renderDashboard() {
   if (!DB.projects.length) { grid.innerHTML=''; empty.style.display='flex'; }
   else {
     empty.style.display = 'none';
-    grid.innerHTML = DB.projects.map((p,i) => {
+    grid.innerHTML = visibleProjects().map(i => {
+      const p = DB.projects[i];
       const spent = spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===i));
       const pp    = p.budget>0 ? Math.round(spent/p.budget*100) : 0;
       const col   = pp>90?'var(--red)':pp>70?'var(--orange)':'var(--green)';
@@ -1732,6 +1740,16 @@ function renderProjectDetail(idx) {
 // ══ ALL PURCHASES ══
 // Helper: signed amount (negative=expense, positive=income)
 function txAmount(pu) { return pu.amount; } // already signed
+function visibleProjects() {
+  // Admins see all projects; workers only see projects they're assigned to
+  if (isPrimaryAdmin || DB.role === 'admin' || DB.role === 'Admin') return DB.projects.map((_,i)=>i);
+  const uid = getSession()?.user?.id;
+  return DB.projects.map((_,i)=>i).filter(i => {
+    const aw = DB.projects[i].assignedWorkers || [];
+    return aw.length === 0 || aw.includes(uid); // if no workers assigned, everyone sees it
+  });
+}
+
 function spentFromPurchases(pus) { return pus.reduce((s,x) => s + (x.type === 'income' ? 0 : Math.abs(x.amount)), 0); }
 function incomeFromPurchases(pus) { return pus.reduce((s,x) => s + (x.type === 'income' ? Math.abs(x.amount) : 0), 0); }
 
@@ -2267,6 +2285,22 @@ let newProjCats = []; // [{name, pct}]  — "All" is implicit, not stored here
 
 function resetProjectModal() {
   newProjCats = [];
+  // Populate assign workers checkboxes
+  const npWorkersList = document.getElementById('np-workers-list');
+  const npWorkersField = document.getElementById('np-workers-field');
+  if (npWorkersList) {
+    if (DB.team.length === 0) {
+      npWorkersField.style.display = 'none';
+    } else {
+      npWorkersField.style.display = '';
+      npWorkersList.innerHTML = DB.team.map(m => {
+        const uid = m.user_id || m._id;
+        const name = (m.firstName+' '+m.lastName).trim();
+        return '<label style="display:flex;align-items:center;gap:0.6em;font-size:0.85rem;cursor:pointer;padding:0.3em 0">' +
+          '<input type="checkbox" data-uid="'+uid+'" style="width:1em;height:1em;accent-color:var(--blue);cursor:pointer"/> '+name+'</label>';
+      }).join('');
+    }
+  }
   ['np-name','np-budget','np-client','np-location','np-start','np-end','np-cat-name','np-cat-pct'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -2338,17 +2372,22 @@ function saveNewProject() {
   const location = document.getElementById('np-location').value.trim();
   const clientStr = [client, location].filter(Boolean).join(' · ');
 
+  const assignedWorkers = Array.from(
+    document.querySelectorAll('#np-workers-list input[type=checkbox]:checked')
+  ).map(cb => cb.dataset.uid);
+
   const proj = {
     name,
-    budget:     parseFloat(document.getElementById('np-budget').value) || 0,
-    client:     clientStr,
-    clientName: client,
-    location:   location,
-    startDate:  document.getElementById('np-start').value,
-    endDate:    document.getElementById('np-end').value,
-    color:      newProjColor,
-    categories: newProjCats.map(c => c.name),
-    catBudgets: Object.fromEntries(newProjCats.filter(c=>c.pct).map(c=>[c.name, c.pct])),
+    budget:          parseFloat(document.getElementById('np-budget').value) || 0,
+    client:          clientStr,
+    clientName:      client,
+    location:        location,
+    startDate:       document.getElementById('np-start').value,
+    endDate:         document.getElementById('np-end').value,
+    color:           newProjColor,
+    categories:      newProjCats.map(c => c.name),
+    catBudgets:      Object.fromEntries(newProjCats.filter(c=>c.pct).map(c=>[c.name, c.pct])),
+    assignedWorkers: assignedWorkers,
   };
   DB.projects.push(proj);
   const idx = DB.projects.length - 1;
