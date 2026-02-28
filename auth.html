@@ -102,7 +102,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
   <div class="card" style="padding:2.5rem">
 
     <!-- SIGN IN -->
-    <div class="flow active" id="flow-signin">
+    <div class="flow" id="flow-signin">
       <div class="flow-title">Welcome back</div>
       <div class="flow-sub">Sign in to your Forge account.</div>
       <div class="field" id="si-f-email">
@@ -128,7 +128,6 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
       <div class="signin-hint" style="margin-top:1.1em">
         Joining a team? <a href="#" onclick="showFlow('join-code');return false;">Enter invite code</a>
       </div>
-      <div class="signin-hint">New company? <a href="join.html">Start free trial</a></div>
     </div>
 
     <!-- FORGOT PASSWORD -->
@@ -152,7 +151,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
     </div>
 
     <!-- JOIN — STEP 1: Enter code -->
-    <div class="flow" id="flow-join-code">
+    <div class="flow active" id="flow-join-code">
       <button class="btn-back" onclick="showFlow('signin')">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Back
@@ -231,6 +230,7 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);colo
     </div>
 
   </div>
+  <div style="margin-top:1.5em;text-align:center;font-size:0.82rem;color:var(--muted)">New company? <a href="join.html" style="color:var(--blue-l);text-decoration:none;font-weight:600">Start free trial →</a></div>
   <div class="page-foot">Forge.inc · Construction Budget Tracking</div>
 </main>
 
