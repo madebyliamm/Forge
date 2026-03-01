@@ -9,6 +9,7 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 /* Dark custom scrollbar */
+@keyframes shopDot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3a3f4a; border-radius: 4px; }
@@ -712,6 +713,11 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 11l3.5-4 3 2.5L11 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="4" r="1.2" fill="currentColor"/></svg>
           Analytics
         </div>
+        <div class="nav-item" onclick="showView('shop')" id="nav-shop">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 1.5h1.8l1.2 6h6l1-4H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="11.5" r="1" fill="currentColor"/><circle cx="10" cy="11.5" r="1" fill="currentColor"/></svg>
+          Shop
+          <span style="font-size:0.5rem;font-weight:700;background:rgba(26,109,232,0.25);color:var(--blue-l);padding:0.1em 0.4em;border-radius:0.25em;letter-spacing:0.05em;margin-left:auto">AI</span>
+        </div>
       </div>
       <div class="divider"></div>
       <div class="sidebar-section">
@@ -977,6 +983,65 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
 
 
+      </div>
+
+      <!-- ══ SHOP ══ -->
+      <div class="view" id="view-shop">
+        <div style="display:flex;flex-direction:column;height:100%;gap:1em">
+
+          <!-- Header row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <div>
+              <div class="page-title" style="display:flex;align-items:center;gap:0.5em">
+                Shop
+                <span style="font-size:0.55rem;font-weight:700;background:rgba(26,109,232,0.2);color:var(--blue-l);padding:0.2em 0.55em;border-radius:0.3em;letter-spacing:0.08em;vertical-align:middle">AI BETA</span>
+              </div>
+              <div class="page-sub">Find materials and supplies for your projects.</div>
+            </div>
+          </div>
+
+          <!-- Project selector + budget info -->
+          <div style="display:flex;gap:0.75em;align-items:flex-start;flex-shrink:0;flex-wrap:wrap">
+            <div style="flex:0 0 220px">
+              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.45em">Project</div>
+              <select id="shop-project-select" onchange="shopSelectProject()" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:0.55em;padding:0.6em 0.8em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;cursor:pointer;outline:none">
+                <option value="">— Select a project —</option>
+              </select>
+            </div>
+            <div id="shop-budget-info" style="display:none;flex:1;background:var(--surface);border:1px solid var(--border);border-radius:0.75em;padding:0.85em 1.1em">
+              <div style="display:flex;gap:1.5em;flex-wrap:wrap" id="shop-budget-stats"></div>
+              <div id="shop-categories-row" style="display:flex;gap:0.5em;flex-wrap:wrap;margin-top:0.75em"></div>
+            </div>
+          </div>
+
+          <!-- Chat area -->
+          <div style="flex:1;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:0.9em;overflow:hidden;min-height:0">
+
+            <!-- Messages -->
+            <div id="shop-messages" style="flex:1;overflow-y:auto;padding:1.25em;display:flex;flex-direction:column;gap:0.85em">
+              <div id="shop-welcome" style="margin:auto;text-align:center;color:var(--muted);padding:2em 1em">
+                <div style="font-size:2rem;margin-bottom:0.5em">🛒</div>
+                <div style="font-weight:600;color:var(--text2);margin-bottom:0.35em">What are you looking for?</div>
+                <div style="font-size:0.82rem">Select a project above, then describe what materials or supplies you need.</div>
+              </div>
+            </div>
+
+            <!-- Input bar -->
+            <div style="padding:0.85em 1em;border-top:1px solid var(--border);display:flex;gap:0.65em;align-items:flex-end;flex-shrink:0">
+              <textarea id="shop-input" placeholder="e.g. PVC pipe fittings, pool pump, concrete mix..." rows="1"
+                style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.6em;padding:0.65em 0.85em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:none;outline:none;line-height:1.4;max-height:120px;overflow-y:auto"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();shopSend()}"
+                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+              <button onclick="shopSend()" id="shop-send-btn"
+                style="background:var(--blue);color:#fff;border:none;border-radius:0.6em;padding:0.65em 1.1em;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;transition:opacity 0.15s;flex-shrink:0;height:38px;display:flex;align-items:center;gap:0.4em"
+                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Search
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
@@ -2017,6 +2082,7 @@ function showView(name) {
   localStorage.removeItem('forge_project');
   renderSidebar(); updateTopbar();
   if (name === 'analytics') renderAnalytics();
+  if (name === 'shop') shopInit();
 }
 
 function openProject(idx) {
@@ -2039,6 +2105,7 @@ function updateTopbar() {
     alerts:    ['Alerts',    ''],
     reports:   ['Reports',   ''],
     analytics: ['Analytics', ''],
+    shop:      ['Shop',       ''],
   };
   if (activeView === 'project' && activeProject !== null) {
     const p = DB.projects[activeProject];
@@ -3545,6 +3612,269 @@ function renderAnalyticsChart() {
 function renderAnalytics() {
   renderAnalyticsMetricTotals();
   renderAnalyticsChart();
+}
+
+
+
+// ══ SHOP ══
+let shopProjectIdx = null;
+let shopMessages   = []; // { role, content }
+let shopSearching  = false;
+
+function shopInit() {
+  const sel = document.getElementById('shop-project-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select a project —</option>' +
+    DB.projects.map((p,i) => `<option value="${i}">${p.name}</option>`).join('');
+  if (shopProjectIdx !== null && DB.projects[shopProjectIdx]) {
+    sel.value = shopProjectIdx;
+    shopRenderBudget();
+  }
+}
+
+function shopSelectProject() {
+  const sel = document.getElementById('shop-project-select');
+  shopProjectIdx = sel.value !== '' ? parseInt(sel.value) : null;
+  shopRenderBudget();
+}
+
+function shopRenderBudget() {
+  const info = document.getElementById('shop-budget-info');
+  const stats = document.getElementById('shop-budget-stats');
+  const cats  = document.getElementById('shop-categories-row');
+  if (shopProjectIdx === null || !DB.projects[shopProjectIdx]) {
+    info.style.display = 'none'; return;
+  }
+  info.style.display = '';
+  const p    = DB.projects[shopProjectIdx];
+  const pus  = DB.purchases.filter(x => x.projectIdx === shopProjectIdx);
+  const spent = spentFromPurchases(pus);
+  const rem   = (p.budget||0) - spent;
+  const pct   = p.budget > 0 ? Math.round(spent/p.budget*100) : 0;
+  const remCol = rem < 0 ? 'var(--red)' : rem < p.budget*0.15 ? 'var(--orange)' : 'var(--green)';
+
+  stats.innerHTML = [
+    { label:'Budget',    val:'$'+fmt(p.budget||0),   col:'var(--text)' },
+    { label:'Spent',     val:'$'+fmt(spent),          col:'var(--text)' },
+    { label:'Remaining', val:'$'+fmt(Math.abs(rem))+(rem<0?' over':''), col:remCol },
+    { label:'Used',      val:pct+'%',                 col: pct>100?'var(--red)':pct>85?'var(--orange)':'var(--text)' },
+  ].map(s => `<div><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:0.2em">${s.label}</div><div style="font-size:0.95rem;font-weight:700;color:${s.col}">${s.val}</div></div>`).join('');
+
+  // Category chips
+  const projectCats = (p.categories||[]).filter(cat => cat !== 'Labor Estimate');
+  cats.innerHTML = projectCats.map(cat => {
+    const catSpent = spentFromPurchases(pus.filter(x=>x.category===cat));
+    const catBudgetPct = p.catBudgets?.[cat] || 0;
+    const catBudget = catBudgetPct ? Math.round(p.budget * catBudgetPct / 100) : null;
+    const remaining = catBudget ? catBudget - catSpent : null;
+    const chip = catBudget
+      ? `${cat} · $${fmt(Math.max(0,remaining))} left`
+      : `${cat} · $${fmt(catSpent)} spent`;
+    const col = catBudget && remaining < 0 ? 'rgba(232,64,64,0.15)' : 'var(--surface2)';
+    return `<div style="font-size:0.72rem;padding:0.3em 0.7em;border-radius:0.4em;background:${col};border:1px solid var(--border);color:var(--text2)">${chip}</div>`;
+  }).join('');
+
+  // Update welcome placeholder
+  const welcome = document.getElementById('shop-welcome');
+  if (welcome && shopMessages.length === 0) {
+    welcome.querySelector('div:last-child').textContent =
+      'Describe what you need for ' + p.name + ' and the AI will find the best options.';
+  }
+}
+
+function shopBuildContext() {
+  if (shopProjectIdx === null || !DB.projects[shopProjectIdx]) return '';
+  const p    = DB.projects[shopProjectIdx];
+  const pus  = DB.purchases.filter(x => x.projectIdx === shopProjectIdx);
+  const spent = spentFromPurchases(pus);
+  const rem   = (p.budget||0) - spent;
+  const cats  = (p.categories||[]).filter(c=>c!=='Labor Estimate').map(cat => {
+    const cs = spentFromPurchases(pus.filter(x=>x.category===cat));
+    const cb = p.catBudgets?.[cat] ? Math.round(p.budget*(p.catBudgets[cat]/100)) : null;
+    return cat + (cb ? ` (budget $${fmt(cb)}, spent $${fmt(cs)}, remaining $${fmt(Math.max(0,cb-cs))})` : ` (spent $${fmt(cs)})`);
+  });
+  return `Project: ${p.name}${p.clientName?' for '+p.clientName:''}. Total budget: $${fmt(p.budget||0)}. Spent: $${fmt(spent)}. Remaining: $${fmt(Math.max(0,rem))}. Categories: ${cats.join(', ') || 'none set'}.`;
+}
+
+function shopAddMessage(role, html, isHTML) {
+  const container = document.getElementById('shop-messages');
+  const welcome   = document.getElementById('shop-welcome');
+  if (welcome) welcome.style.display = 'none';
+
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;${isUser?'justify-content:flex-end':'justify-content:flex-start'}`;
+
+  const bubble = document.createElement('div');
+  bubble.style.cssText = isUser
+    ? 'background:var(--blue);color:#fff;border-radius:1em 1em 0.2em 1em;padding:0.65em 1em;font-size:0.85rem;max-width:75%;line-height:1.45'
+    : 'background:var(--surface2);border:1px solid var(--border);border-radius:0.2em 1em 1em 1em;padding:0.65em 1em;font-size:0.85rem;max-width:90%;line-height:1.45;width:100%';
+
+  if (isHTML) bubble.innerHTML = html;
+  else bubble.textContent = html;
+
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+function shopAddTyping() {
+  const container = document.getElementById('shop-messages');
+  const div = document.createElement('div');
+  div.id = 'shop-typing';
+  div.style.cssText = 'display:flex;justify-content:flex-start';
+  div.innerHTML = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:0.2em 1em 1em 1em;padding:0.65em 1em">
+    <div style="display:flex;gap:4px;align-items:center;height:16px">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shopDot 1.2s ease-in-out infinite"></div>
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shopDot 1.2s ease-in-out 0.2s infinite"></div>
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shopDot 1.2s ease-in-out 0.4s infinite"></div>
+    </div>
+  </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function shopRemoveTyping() {
+  const t = document.getElementById('shop-typing');
+  if (t) t.remove();
+}
+
+function shopRenderCards(items, remainingBudget) {
+  if (!items || !items.length) return '<div style="color:var(--muted);font-size:0.85rem">No results found. Try a different search.</div>';
+  return `<div style="display:flex;flex-direction:column;gap:0.65em;width:100%">` +
+    items.map(item => {
+      const price    = parseFloat(item.price) || 0;
+      const overBudget = remainingBudget !== null && price > remainingBudget;
+      const img      = item.image ? `<img src="${item.image}" style="width:64px;height:64px;object-fit:cover;border-radius:0.45em;flex-shrink:0;background:var(--surface3)" onerror="this.style.display='none'">` : `<div style="width:64px;height:64px;border-radius:0.45em;background:var(--surface3);display:grid;place-items:center;flex-shrink:0;font-size:1.4rem">🛒</div>`;
+      const warning  = overBudget ? `<div style="font-size:0.68rem;color:var(--orange);font-weight:600;margin-top:0.2em">⚠️ Exceeds remaining budget</div>` : '';
+      const priceStr = price > 0 ? `<div style="font-size:1rem;font-weight:700;color:${overBudget?'var(--orange)':'var(--green)'}">${item.priceDisplay||('$'+price.toFixed(2))}</div>` : `<div style="font-size:0.8rem;color:var(--muted)">Price varies</div>`;
+      const addBtn   = shopProjectIdx !== null ? `<button onclick="shopAddToProject(${JSON.stringify(item).replace(/"/g,'&quot;')})" style="font-size:0.72rem;padding:0.35em 0.75em;background:rgba(26,109,232,0.15);border:1px solid rgba(26,109,232,0.3);border-radius:0.4em;color:var(--blue-l);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap;transition:background 0.12s" onmouseenter="this.style.background='rgba(26,109,232,0.25)'" onmouseleave="this.style.background='rgba(26,109,232,0.15)'">+ Add Expense</button>` : '';
+      return `<div style="display:flex;gap:0.85em;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:0.7em;padding:0.85em">
+        ${img}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.88rem;margin-bottom:0.2em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.name}</div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.4em;line-height:1.4">${item.reason||''}</div>
+          <div style="display:flex;align-items:center;gap:0.75em;flex-wrap:wrap">
+            ${priceStr}
+            ${item.store?`<div style="font-size:0.72rem;color:var(--text2)">${item.store}</div>`:''}
+            ${warning}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.4em;align-items:flex-end;flex-shrink:0">
+          ${item.url?`<a href="${item.url}" target="_blank" style="font-size:0.72rem;padding:0.35em 0.75em;background:var(--surface2);border:1px solid var(--border2);border-radius:0.4em;color:var(--text2);text-decoration:none;font-weight:600;white-space:nowrap">View →</a>`:''}
+          ${addBtn}
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function shopAddToProject(item) {
+  if (shopProjectIdx === null) return;
+  const price = parseFloat(item.price) || 0;
+  const p = DB.projects[shopProjectIdx];
+  const pu = {
+    vendor:     item.store || item.name,
+    amount:     price,
+    type:       'expense',
+    projectIdx: shopProjectIdx,
+    category:   (p.categories||[]).find(c=>c!=='Labor Estimate') || 'Materials',
+    date:       new Date().toISOString().split('T')[0],
+    worker:     ((DB.firstName||'')+' '+(DB.lastName||'')).trim() || 'Admin',
+    notes:      item.name + (item.url ? ' — '+item.url : ''),
+    ts:         Date.now(),
+  };
+  DB.purchases.push(pu);
+  sbSavePurchase(pu, DB.purchases.length-1).catch(console.error);
+  pushNotif('transaction', 'Expense added from Shop', '$'+fmt(price)+' · '+pu.vendor, {projectIdx:shopProjectIdx});
+  shopRenderBudget();
+  showToast('Added to ' + p.name);
+}
+
+async function shopSend() {
+  if (shopSearching) return;
+  const input = document.getElementById('shop-input');
+  const query = (input?.value||'').trim();
+  if (!query) { input?.focus(); return; }
+
+  input.value = '';
+  input.style.height = 'auto';
+  shopMessages.push({ role:'user', content: query });
+  shopAddMessage('user', query, false);
+
+  shopSearching = true;
+  const btn = document.getElementById('shop-send-btn');
+  if (btn) { btn.disabled = true; btn.style.opacity='0.5'; }
+  shopAddTyping();
+
+  const ctx = shopBuildContext();
+  const remaining = shopProjectIdx !== null && DB.projects[shopProjectIdx]
+    ? (DB.projects[shopProjectIdx].budget||0) - spentFromPurchases(DB.purchases.filter(x=>x.projectIdx===shopProjectIdx))
+    : null;
+
+  const systemPrompt = `You are a construction supply assistant helping find materials and products. The user is searching for supplies for a construction project.
+${ctx ? 'Project context: '+ctx : ''}
+
+Search the web for real products matching the user's query. Return a JSON object with this exact structure — no markdown, no explanation, just the raw JSON:
+{
+  "message": "Brief friendly message about the results (1-2 sentences)",
+  "items": [
+    {
+      "name": "Product name",
+      "price": 29.99,
+      "priceDisplay": "$29.99",
+      "store": "Home Depot",
+      "url": "https://...",
+      "image": "https://... (product image URL if available)",
+      "reason": "Why this fits the project (1 sentence)"
+    }
+  ]
+}
+Return 3-6 items. Use real current products with real URLs. If price varies, set price to 0.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: systemPrompt,
+        messages: [
+          ...shopMessages.slice(0,-1).map(m => ({ role: m.role, content: m.content })),
+          { role:'user', content: query }
+        ]
+      })
+    });
+
+    const data = await resp.json();
+    shopRemoveTyping();
+
+    // Extract text from response
+    const textBlock = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    let parsed = null;
+    try {
+      const jsonMatch = textBlock.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch(e) {}
+
+    if (parsed && parsed.items) {
+      shopMessages.push({ role:'assistant', content: textBlock });
+      const html = `<div style="font-size:0.83rem;color:var(--text2);margin-bottom:0.65em">${parsed.message||'Here\u2019s what I found:'}</div>` +
+        shopRenderCards(parsed.items, remaining);
+      shopAddMessage('assistant', html, true);
+    } else {
+      // Fallback: show raw text
+      shopAddMessage('assistant', textBlock || 'Sorry, could not find results for that. Try rephrasing.', false);
+    }
+  } catch(err) {
+    shopRemoveTyping();
+    shopAddMessage('assistant', 'Search failed. Please try again.', false);
+  }
+
+  shopSearching = false;
+  if (btn) { btn.disabled = false; btn.style.opacity='1'; }
 }
 
 
