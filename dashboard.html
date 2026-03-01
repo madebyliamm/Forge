@@ -83,6 +83,8 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 /* VIEWS */
 .view { display: none; }
 .view.active { display: block; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; padding: 1.5em 1.75em; }
+#view-shop { padding: 0; }
+#view-shop.active { display: block !important; overflow-y: auto; padding: 0; }
 
 /* EMPTY STATE */
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 0.8em; }
@@ -987,60 +989,70 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
       <!-- ══ SHOP ══ -->
       <div class="view" id="view-shop">
-        <div style="display:flex;flex-direction:column;height:100%;gap:1em">
+        <!-- full-height scrollable wrapper centered -->
+        <div style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:2em 1em">
+          <div style="width:100%;max-width:640px">
 
-          <!-- Header row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <!-- ── Header ── -->
+            <div style="text-align:center;margin-bottom:2.25em">
+              <div style="display:inline-flex;align-items:center;gap:0.45em;margin-bottom:0.6em">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink:0">
+                  <path d="M2 2.5h2.2L6 11.5h9.5l1.8-6H6.5" stroke="#4a8ff0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="8.5" cy="15.5" r="1.5" fill="#4a8ff0"/>
+                  <circle cx="14" cy="15.5" r="1.5" fill="#4a8ff0"/>
+                </svg>
+                <span style="font-size:1.5rem;font-weight:700;letter-spacing:-0.035em">Forge AI Shopper</span>
+                <span style="font-size:0.5rem;font-weight:800;background:rgba(74,143,240,0.2);color:#4a8ff0;padding:0.22em 0.55em;border-radius:0.3em;letter-spacing:0.1em;margin-top:2px">BETA</span>
+              </div>
+              <p style="font-size:0.84rem;color:var(--muted);margin:0;line-height:1.6">Describe what you need — the AI finds the best materials, tools,<br>and supplies matched to your project and remaining budget.</p>
+            </div>
+
+            <!-- ── Search box ── -->
+            <div style="background:var(--surface);border:1px solid var(--border2);border-radius:1.1em;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.4);margin-bottom:1.75em">
+              <textarea id="shop-input"
+                placeholder="e.g. PVC pipe fittings, pool pump, concrete mix, copper wire..."
+                rows="3"
+                style="width:100%;background:transparent;border:none;padding:1.15em 1.25em 0.5em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.95rem;resize:none;outline:none;line-height:1.55;display:block;box-sizing:border-box"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();}"></textarea>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0.7em 1em 0.8em">
+                <span style="font-size:0.71rem;color:var(--muted)">
+                  <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:0.3em;padding:0.1em 0.45em;font-family:inherit;font-size:0.95em;color:var(--text2)">↵</kbd>
+                  &nbsp;to search &nbsp;·&nbsp; coming soon
+                </span>
+                <button disabled style="display:flex;align-items:center;gap:0.4em;background:var(--blue);color:#fff;border:none;border-radius:0.6em;padding:0.55em 1.15em;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;cursor:not-allowed;opacity:0.45">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.65"/><path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/></svg>
+                  Search
+                </button>
+              </div>
+            </div>
+
+            <!-- ── Project selector ── -->
             <div>
-              <div class="page-title" style="display:flex;align-items:center;gap:0.5em">
-                Shop
-                <span style="font-size:0.55rem;font-weight:700;background:rgba(26,109,232,0.2);color:var(--blue-l);padding:0.2em 0.55em;border-radius:0.3em;letter-spacing:0.08em;vertical-align:middle">AI BETA</span>
-              </div>
-              <div class="page-sub">Find materials and supplies for your projects.</div>
-            </div>
-          </div>
+              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);text-align:center;margin-bottom:0.8em">Attach a project for context</div>
 
-          <!-- Project selector + budget info -->
-          <div style="display:flex;gap:0.75em;align-items:flex-start;flex-shrink:0;flex-wrap:wrap">
-            <div style="flex:0 0 220px">
-              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.45em">Project</div>
-              <select id="shop-project-select" onchange="shopSelectProject()" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:0.55em;padding:0.6em 0.8em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;cursor:pointer;outline:none">
-                <option value="">— Select a project —</option>
-              </select>
-            </div>
-            <div id="shop-budget-info" style="display:none;flex:1;background:var(--surface);border:1px solid var(--border);border-radius:0.75em;padding:0.85em 1.1em">
-              <div style="display:flex;gap:1.5em;flex-wrap:wrap" id="shop-budget-stats"></div>
-              <div id="shop-categories-row" style="display:flex;gap:0.5em;flex-wrap:wrap;margin-top:0.75em"></div>
-            </div>
-          </div>
+              <!-- chips rendered by JS -->
+              <div id="shop-proj-chips" style="display:flex;gap:0.45em;flex-wrap:wrap;justify-content:center;margin-bottom:1em"></div>
 
-          <!-- Chat area -->
-          <div style="flex:1;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:0.9em;overflow:hidden;min-height:0">
-
-            <!-- Messages -->
-            <div id="shop-messages" style="flex:1;overflow-y:auto;padding:1.25em;display:flex;flex-direction:column;gap:0.85em">
-              <div id="shop-welcome" style="margin:auto;text-align:center;color:var(--muted);padding:2em 1em">
-                <div style="font-size:2rem;margin-bottom:0.5em">🛒</div>
-                <div style="font-weight:600;color:var(--text2);margin-bottom:0.35em">What are you looking for?</div>
-                <div style="font-size:0.82rem">Select a project above, then describe what materials or supplies you need.</div>
+              <!-- detail panel — slides open -->
+              <div id="shop-proj-detail"
+                style="max-height:0;overflow:hidden;opacity:0;transition:max-height 0.45s cubic-bezier(0.16,1,0.3,1),opacity 0.3s ease,transform 0.4s cubic-bezier(0.16,1,0.3,1);transform:translateY(-8px)">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.15em 1.3em">
+                  <!-- project name row -->
+                  <div style="display:flex;align-items:center;gap:0.65em;margin-bottom:1em">
+                    <div id="shop-proj-dot" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#4a8ff0"></div>
+                    <div id="shop-proj-name" style="font-weight:700;font-size:0.95rem;letter-spacing:-0.01em"></div>
+                    <div id="shop-proj-client" style="font-size:0.77rem;color:var(--muted);margin-left:0.1em"></div>
+                  </div>
+                  <!-- budget stats row -->
+                  <div id="shop-budget-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5em;margin-bottom:1em;padding-bottom:1em;border-bottom:1px solid var(--border)"></div>
+                  <!-- category chips -->
+                  <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:0.55em">Categories</div>
+                  <div id="shop-categories-row" style="display:flex;gap:0.4em;flex-wrap:wrap"></div>
+                </div>
               </div>
             </div>
 
-            <!-- Input bar -->
-            <div style="padding:0.85em 1em;border-top:1px solid var(--border);display:flex;gap:0.65em;align-items:flex-end;flex-shrink:0">
-              <textarea id="shop-input" placeholder="e.g. PVC pipe fittings, pool pump, concrete mix..." rows="1"
-                style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:0.6em;padding:0.65em 0.85em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:none;outline:none;line-height:1.4;max-height:120px;overflow-y:auto"
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();shopSend()}"
-                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
-              <button onclick="shopSend()" id="shop-send-btn"
-                style="background:var(--blue);color:#fff;border:none;border-radius:0.6em;padding:0.65em 1.1em;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;transition:opacity 0.15s;flex-shrink:0;height:38px;display:flex;align-items:center;gap:0.4em"
-                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Search
-              </button>
-            </div>
           </div>
-
         </div>
       </div>
 
@@ -3622,31 +3634,66 @@ let shopMessages   = []; // { role, content }
 let shopSearching  = false;
 
 function shopInit() {
-  const sel = document.getElementById('shop-project-select');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">— Select a project —</option>' +
-    DB.projects.map((p,i) => `<option value="${i}">${p.name}</option>`).join('');
+  const chips = document.getElementById('shop-proj-chips');
+  if (!chips) return;
+  if (!DB.projects.length) {
+    chips.innerHTML = '<div style="font-size:0.82rem;color:var(--muted)">No projects yet</div>';
+    return;
+  }
+  chips.innerHTML = DB.projects.map((p,i) => `
+    <div class="shop-proj-chip" id="shop-chip-${i}" onclick="shopSelectProject(${i})"
+      style="display:flex;align-items:center;gap:0.5em;padding:0.5em 1em;border:1px solid var(--border);border-radius:2em;cursor:pointer;transition:all 0.15s;background:var(--surface);font-size:0.82rem;font-weight:500">
+      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+      ${p.name}
+    </div>`).join('');
   if (shopProjectIdx !== null && DB.projects[shopProjectIdx]) {
-    sel.value = shopProjectIdx;
-    shopRenderBudget();
+    shopSelectProject(shopProjectIdx, false);
   }
 }
 
-function shopSelectProject() {
-  const sel = document.getElementById('shop-project-select');
-  shopProjectIdx = sel.value !== '' ? parseInt(sel.value) : null;
+function shopSelectProject(idx, animate) {
+  const wasSelected = shopProjectIdx === idx;
+  shopProjectIdx = wasSelected ? null : idx;
+
+  // Update chip styles
+  DB.projects.forEach((_,i) => {
+    const chip = document.getElementById('shop-chip-'+i);
+    if (!chip) return;
+    const active = i === shopProjectIdx;
+    chip.style.background    = active ? 'rgba(74,143,240,0.12)' : 'var(--surface)';
+    chip.style.borderColor   = active ? '#4a8ff0' : 'var(--border)';
+    chip.style.color         = active ? '#4a8ff0' : '';
+    chip.style.fontWeight    = active ? '600' : '500';
+  });
+
+  const detail = document.getElementById('shop-proj-detail');
+  if (shopProjectIdx === null) {
+    detail.style.maxHeight = '0';
+    detail.style.opacity   = '0';
+    detail.style.transform = 'translateY(-8px)';
+    return;
+  }
   shopRenderBudget();
+  // Animate open
+  requestAnimationFrame(() => {
+    detail.style.opacity   = '1';
+    detail.style.maxHeight = '320px';
+    detail.style.transform = 'translateY(0)';
+  });
 }
 
 function shopRenderBudget() {
-  const info = document.getElementById('shop-budget-info');
   const stats = document.getElementById('shop-budget-stats');
   const cats  = document.getElementById('shop-categories-row');
-  if (shopProjectIdx === null || !DB.projects[shopProjectIdx]) {
-    info.style.display = 'none'; return;
-  }
-  info.style.display = '';
+  if (shopProjectIdx === null || !DB.projects[shopProjectIdx]) return;
   const p    = DB.projects[shopProjectIdx];
+  // Update name/dot/client
+  const nameEl   = document.getElementById('shop-proj-name');
+  const dotEl    = document.getElementById('shop-proj-dot');
+  const clientEl = document.getElementById('shop-proj-client');
+  if (nameEl)   nameEl.textContent   = p.name;
+  if (dotEl)    dotEl.style.background = p.color;
+  if (clientEl) clientEl.textContent = p.clientName || '';
   const pus  = DB.purchases.filter(x => x.projectIdx === shopProjectIdx);
   const spent = spentFromPurchases(pus);
   const rem   = (p.budget||0) - spent;
@@ -3656,9 +3703,9 @@ function shopRenderBudget() {
   stats.innerHTML = [
     { label:'Budget',    val:'$'+fmt(p.budget||0),   col:'var(--text)' },
     { label:'Spent',     val:'$'+fmt(spent),          col:'var(--text)' },
-    { label:'Remaining', val:'$'+fmt(Math.abs(rem))+(rem<0?' over':''), col:remCol },
-    { label:'Used',      val:pct+'%',                 col: pct>100?'var(--red)':pct>85?'var(--orange)':'var(--text)' },
-  ].map(s => `<div><div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:0.2em">${s.label}</div><div style="font-size:0.95rem;font-weight:700;color:${s.col}">${s.val}</div></div>`).join('');
+    { label:'Remaining', val:(rem<0?'-':'')+'$'+fmt(Math.abs(rem)), col:remCol },
+    { label:'Used',      val:pct+'%',                 col: pct>100?'var(--red)':pct>85?'var(--orange)':'var(--green)' },
+  ].map(s => `<div style="background:var(--surface2);border-radius:0.6em;padding:0.6em 0.75em"><div style="font-size:0.59rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.3em">${s.label}</div><div style="font-size:0.9rem;font-weight:700;color:${s.col}">${s.val}</div></div>`).join('');
 
   // Category chips
   const projectCats = (p.categories||[]).filter(cat => cat !== 'Labor Estimate');
@@ -3667,11 +3714,12 @@ function shopRenderBudget() {
     const catBudgetPct = p.catBudgets?.[cat] || 0;
     const catBudget = catBudgetPct ? Math.round(p.budget * catBudgetPct / 100) : null;
     const remaining = catBudget ? catBudget - catSpent : null;
-    const chip = catBudget
-      ? `${cat} · $${fmt(Math.max(0,remaining))} left`
-      : `${cat} · $${fmt(catSpent)} spent`;
-    const col = catBudget && remaining < 0 ? 'rgba(232,64,64,0.15)' : 'var(--surface2)';
-    return `<div style="font-size:0.72rem;padding:0.3em 0.7em;border-radius:0.4em;background:${col};border:1px solid var(--border);color:var(--text2)">${chip}</div>`;
+    const label = catBudget
+      ? `${cat} <span style="opacity:0.6">·</span> $${fmt(Math.max(0,remaining))} left`
+      : `${cat}`;
+    const bg  = catBudget && remaining < 0 ? 'rgba(232,64,64,0.12)' : 'var(--surface2)';
+    const bdr = catBudget && remaining < 0 ? 'rgba(232,64,64,0.3)' : 'var(--border)';
+    return `<div style="font-size:0.73rem;padding:0.32em 0.75em;border-radius:2em;background:${bg};border:1px solid ${bdr};color:var(--text2);font-weight:500">${label}</div>`;
   }).join('');
 
   // Update welcome placeholder
