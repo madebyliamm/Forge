@@ -246,6 +246,8 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .an-filter-pill { padding:0.35em 0.8em;border:1px solid var(--border);border-radius:0.4em;background:var(--surface2);color:var(--muted);font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
 .an-filter-pill:hover { border-color:var(--border2);color:var(--text); }
 .an-filter-pill.active { background:var(--surface3);border-color:var(--border2);color:var(--text); }
+.an-dot { cursor:pointer;transition:r 0.15s ease; }
+.an-dot:hover { r:6; }
 .an-proj-row { display:grid;grid-template-columns:1fr 100px 100px 90px 140px;gap:0.5em;align-items:center;padding:0.85em 1.15em;border-bottom:1px solid var(--border);font-size:0.83rem; }
 .an-proj-row:last-child { border-bottom:none; }
 .an-proj-head { font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);padding:0.65em 1.15em;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 100px 100px 90px 140px;gap:0.5em; }
@@ -950,8 +952,8 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             </div>
             <div style="display:flex;gap:0.4em;flex-wrap:wrap" id="an-granularity-filters"></div>
           </div>
-          <div id="an-chart-wrap" style="position:relative;height:180px;width:100%">
-            <svg id="an-chart-svg" width="100%" height="180" style="overflow:visible;display:block"></svg>
+          <div id="an-chart-wrap" style="position:relative;height:min(40vh,320px);width:100%">
+            <svg id="an-chart-svg" width="100%" height="100%" style="overflow:visible;display:block;position:absolute;inset:0"></svg>
             <div id="an-tooltip" style="position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.75rem;pointer-events:none;display:none;white-space:nowrap;z-index:10">
               <div id="an-tooltip-label" style="color:var(--muted);margin-bottom:0.2em;font-size:0.68rem"></div>
               <div id="an-tooltip-val" style="font-weight:700"></div>
@@ -966,9 +968,17 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         <!-- Period filter pills -->
         <div style="display:flex;gap:0.4em;margin-bottom:1.75em;flex-wrap:wrap" id="an-period-filters"></div>
 
-        <!-- Project comparison table -->
-        <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.75em">Project Breakdown</div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;overflow:hidden" id="an-proj-table"></div>
+        <!-- Top spenders / category breakdown -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75em;margin-top:0.25em" id="an-bottom-row">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.15em 1.25em">
+            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.85em">Top Categories</div>
+            <div id="an-cat-list"></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.15em 1.25em">
+            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.85em">Top Vendors</div>
+            <div id="an-vendor-list"></div>
+          </div>
+        </div>
 
       </div>
 
@@ -3129,11 +3139,14 @@ let anMetric    = 'spending';
 let anGranularity = 'weekly';
 let anPeriod    = '3m';
 
+const AN_COLOR      = '#4a8ff0';
+const AN_GRAD_START = 'rgba(74,143,240,0.2)';
+const AN_GRAD_END   = 'rgba(74,143,240,0)';
 const AN_METRIC_CFG = {
-  spending:     { label:'Spending Over Time',     color:'#e84040', gradStart:'rgba(232,64,64,0.18)',   gradEnd:'rgba(232,64,64,0)',   fmt: v=>'$'+fmtShort(v) },
-  revenue:      { label:'Revenue Over Time',      color:'#0da068', gradStart:'rgba(13,160,104,0.18)',  gradEnd:'rgba(13,160,104,0)',  fmt: v=>'$'+fmtShort(v) },
-  profit:       { label:'Profit Over Time',       color:'#1a6de8', gradStart:'rgba(26,109,232,0.18)',  gradEnd:'rgba(26,109,232,0)',  fmt: v=>'$'+fmtShort(v) },
-  transactions: { label:'Transactions Over Time', color:'#a78bfa', gradStart:'rgba(167,139,250,0.18)', gradEnd:'rgba(167,139,250,0)', fmt: v=>v+' txn' },
+  spending:     { label:'Spending Over Time',     fmt: v=>'$'+fmtShort(v) },
+  revenue:      { label:'Revenue Over Time',      fmt: v=>'$'+fmtShort(v) },
+  profit:       { label:'Profit Over Time',       fmt: v=>(v<0?'-':'')+'$'+fmtShort(Math.abs(v)) },
+  transactions: { label:'Transactions Over Time', fmt: v=>String(Math.round(v)) },
 };
 
 const AN_GRANULARITY = [
@@ -3175,10 +3188,15 @@ function anPeriodRange() {
   else if (anPeriod === '6m') { start = new Date(now); start.setMonth(start.getMonth()-6); start.setDate(1); }
   else if (anPeriod === '1y') { start = new Date(now.getFullYear(), 0, 1); }
   else {
-    // All time — find earliest purchase date
     const dates = DB.purchases.map(p=>p.date).filter(Boolean).sort();
     start = dates.length ? new Date(dates[0]+'T00:00:00') : new Date(now.getFullYear(), 0, 1);
   }
+  // For weekly: snap start back to Monday of that week so we don't miss the first week
+  if (anGranularity === 'weekly') {
+    const day = start.getDay() || 7;
+    if (day !== 1) start.setDate(start.getDate() - day + 1);
+  }
+  start.setHours(0,0,0,0);
   return { start, end };
 }
 
@@ -3233,14 +3251,32 @@ function anGetSeriesData() {
   return uniq.map(k => ({ key:k, label:anBucketLabel(k,anGranularity), value: buckets[k]?.[anMetric] || 0 }));
 }
 
-function drawChart(points, cfg) {
-  const svg = document.getElementById('an-chart-svg');
-  const noData = document.getElementById('an-no-data');
-  const wrap = document.getElementById('an-chart-wrap');
-  if (!svg) return;
+function catmullRomPath(pts) {
+  // Convert pts to smooth cubic bezier curve
+  if (pts.length < 2) return pts.length===1?`M${pts[0][0]},${pts[0][1]}`:'';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i=0; i<pts.length-1; i++) {
+    const p0 = pts[Math.max(i-1,0)];
+    const p1 = pts[i];
+    const p2 = pts[i+1];
+    const p3 = pts[Math.min(i+2,pts.length-1)];
+    const cp1x = p1[0] + (p2[0]-p0[0])/6;
+    const cp1y = p1[1] + (p2[1]-p0[1])/6;
+    const cp2x = p2[0] - (p3[0]-p1[0])/6;
+    const cp2y = p2[1] - (p3[1]-p1[1])/6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
 
-  const maxVal = Math.max(...points.map(p=>p.value), 1);
-  const hasData = points.some(p=>p.value>0);
+function drawChart(points, cfg) {
+  const svg    = document.getElementById('an-chart-svg');
+  const noData = document.getElementById('an-no-data');
+  const wrap   = document.getElementById('an-chart-wrap');
+  if (!svg||!wrap) return;
+
+  const maxVal = Math.max(...points.map(p=>Math.abs(p.value)), 1);
+  const hasData = points.some(p=>p.value!==0);
 
   if (!hasData) {
     svg.innerHTML = '';
@@ -3249,55 +3285,94 @@ function drawChart(points, cfg) {
   }
   noData.style.display = 'none';
 
-  const W = wrap.clientWidth || 700;
-  const H = 180;
-  const pad = { top:16, right:16, bottom:36, left:0 };
-  const cW = W - pad.left - pad.right;
-  const cH = H - pad.top - pad.bottom;
-  const n  = points.length;
+  const W   = wrap.clientWidth || 700;
+  const H   = wrap.clientHeight || 280;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-  const x = i => pad.left + (n <= 1 ? cW/2 : (i/(n-1))*cW);
-  const y = v => pad.top + cH - (v/maxVal)*cH;
+  const pad = { top:20, right:16, bottom:38, left:48 };
+  const cW  = W - pad.left - pad.right;
+  const cH  = H - pad.top  - pad.bottom;
+  const n   = points.length;
+  const bottom = pad.top + cH;
 
-  // Build path
-  const pts = points.map((p,i) => [x(i), y(p.value)]);
-  const pathD = pts.map((p,i)=>( i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-  const areaD = pathD + ' L'+pts[pts.length-1][0].toFixed(1)+' '+(pad.top+cH)+' L'+pts[0][0].toFixed(1)+' '+(pad.top+cH)+' Z';
+  const xi = i => pad.left + (n<=1 ? cW/2 : (i/(n-1))*cW);
+  const yv = v => pad.top  + cH - ((v/maxVal)*cH);
 
-  const gradId = 'an-grad-'+anMetric;
+  const pts   = points.map((p,i) => [xi(i), yv(p.value)]);
+  const lineD = catmullRomPath(pts);
+  // For area: close back along baseline
+  const areaD = lineD + ` L${pts[pts.length-1][0].toFixed(1)},${bottom} L${pts[0][0].toFixed(1)},${bottom} Z`;
+
+  // Y axis labels
+  const yLabels = [0,0.25,0.5,0.75,1].map(f=>{
+    const val = maxVal*f;
+    const yy  = (pad.top + cH*(1-f)).toFixed(1);
+    const lbl = cfg.fmt(val);
+    return `<line x1="${pad.left-6}" y1="${yy}" x2="${W-pad.right}" y2="${yy}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+            <text x="${(pad.left-8).toFixed(0)}" y="${yy}" fill="rgba(255,255,255,0.22)" font-size="9" font-family="JetBrains Mono,monospace" text-anchor="end" dominant-baseline="middle">${lbl}</text>`;
+  }).join('');
+
+  // X labels — evenly spaced ~6
+  const step = Math.max(1, Math.ceil(n/6));
+  const xLabels = points.filter((_,i)=> i%step===0 || i===n-1).map(pt=>{
+    const idx = points.indexOf(pt);
+    return `<text x="${xi(idx).toFixed(1)}" y="${(bottom+18).toFixed(1)}" fill="rgba(255,255,255,0.28)" font-size="9.5" font-family="DM Sans,sans-serif" text-anchor="middle">${pt.label}</text>`;
+  }).join('');
+
+  // Dots (small, grow on hover via CSS)
+  const dots = pts.map((p,i)=>`
+    <circle class="an-dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${AN_COLOR}" stroke="var(--surface)" stroke-width="2"
+      data-label="${points[i].label}" data-val="${cfg.fmt(points[i].value)}"
+      data-x="${p[0].toFixed(1)}" data-y="${p[1].toFixed(1)}"
+      onmouseenter="anShowTooltip(event,this)" onmouseleave="anHideTooltip()"/>
+  `).join('');
+
   svg.innerHTML = `
     <defs>
-      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${cfg.gradStart}"/>
-        <stop offset="100%" stop-color="${cfg.gradEnd}"/>
+      <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${AN_GRAD_START}"/>
+        <stop offset="100%" stop-color="${AN_GRAD_END}"/>
       </linearGradient>
+      <clipPath id="an-clip-${anMetric}">
+        <rect x="${pad.left}" y="${pad.top}" width="${cW}" height="${cH+2}"/>
+      </clipPath>
     </defs>
-    <!-- Grid lines -->
-    ${[0,0.25,0.5,0.75,1].map(f=>{
-      const yy = (pad.top + cH*(1-f)).toFixed(1);
-      const lbl = f===0?'':cfg.fmt(maxVal*f);
-      return `<line x1="${pad.left}" y1="${yy}" x2="${W}" y2="${yy}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-              <text x="${pad.left}" y="${(parseFloat(yy)-4).toFixed(1)}" fill="rgba(255,255,255,0.2)" font-size="9" font-family="JetBrains Mono,monospace">${lbl}</text>`;
-    }).join('')}
-    <!-- Area fill -->
-    <path d="${areaD}" fill="url(#${gradId})"/>
-    <!-- Line -->
-    <path d="${pathD}" fill="none" stroke="${cfg.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Dots + hit areas -->
-    ${pts.map((p,i)=>`
-      <circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${cfg.color}" opacity="0.9"/>
-      <circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="14" fill="transparent" class="an-hit"
-        data-label="${points[i].label}" data-val="${cfg.fmt(points[i].value)}"
-        data-x="${p[0].toFixed(1)}" data-y="${p[1].toFixed(1)}"
-        onmouseenter="anShowTooltip(event,this)" onmouseleave="anHideTooltip()"/>
-    `).join('')}
-    <!-- X axis labels — show ~6 evenly spaced -->
-    ${points.filter((_,i)=> n<=8 || i%(Math.ceil(n/6))===0).map((pt,_,arr)=>{
-      const idx = points.indexOf(pt);
-      const px = x(idx).toFixed(1);
-      return `<text x="${px}" y="${(pad.top+cH+20).toFixed(1)}" fill="rgba(255,255,255,0.3)" font-size="9.5" font-family="DM Sans,sans-serif" text-anchor="middle">${pt.label}</text>`;
-    }).join('')}
+    ${yLabels}
+    <g clip-path="url(#an-clip-${anMetric})">
+      <path d="${areaD}" fill="url(#an-grad)" opacity="0"/>
+      <path d="${lineD}" fill="none" stroke="${AN_COLOR}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+    </g>
+    ${xLabels}
+    <g id="an-dots-g" opacity="0">${dots}</g>
   `;
+
+  // Animate in: dots rise from bottom, line/area fade in
+  requestAnimationFrame(()=>{
+    // Fade in area and line
+    svg.querySelectorAll('path[fill="url(#an-grad)"], path[stroke="${AN_COLOR}"]').forEach(el=>{
+      el.style.transition='opacity 0.45s ease';
+      el.style.opacity='1';
+    });
+    // Actually select them properly
+    const area = svg.querySelector('path[fill="url(#an-grad)"]');
+    const line = svg.querySelector('path[stroke]');
+    const dotsG = document.getElementById('an-dots-g');
+    if (area) { area.style.transition='opacity 0.5s ease'; area.style.opacity='1'; }
+    if (line) { line.style.transition='opacity 0.4s ease'; line.style.opacity='1'; }
+    // Animate dots rising from baseline
+    const dotEls = svg.querySelectorAll('.an-dot');
+    dotEls.forEach((dot, i) => {
+      const finalCy = parseFloat(dot.getAttribute('cy'));
+      dot.setAttribute('cy', bottom); // start at baseline
+      dot.style.transition = 'cy 0.5s cubic-bezier(0.16,1,0.3,1) '+(i*25)+'ms, opacity 0.3s ease '+(i*25)+'ms';
+      dot.style.opacity='0';
+      requestAnimationFrame(()=>setTimeout(()=>{
+        dot.setAttribute('cy', finalCy);
+        dot.style.opacity='1';
+      }, 20+i*25));
+    });
+    if (dotsG) { dotsG.style.transition='opacity 0.1s'; dotsG.style.opacity='1'; }
+  });
 }
 
 function anShowTooltip(e, el) {
@@ -3344,7 +3419,7 @@ function renderAnalyticsChart() {
   const total  = points.reduce((s,p)=>s+p.value,0);
   if (tot) {
     tot.textContent = cfg.fmt(total);
-    tot.style.color = anMetric==='profit' && total<0 ? 'var(--red)' : cfg.color;
+    tot.style.color = anMetric==='profit' && total<0 ? 'var(--red)' : AN_COLOR;
   }
 
   drawChart(points, cfg);
@@ -3360,7 +3435,7 @@ function renderAnalyticsMetricTotals() {
     'anv-spending':     '$'+fmtShort(totalSpend),
     'anv-revenue':      '$'+fmtShort(totalRev),
     'anv-profit':       (totalProfit<0?'-':'')+'$'+fmtShort(Math.abs(totalProfit)),
-    'anv-transactions': pus.length+' total',
+    'anv-transactions': String(pus.length),
   };
   Object.entries(els).forEach(([id,val])=>{
     const el = document.getElementById(id);
@@ -3411,10 +3486,48 @@ function renderAnalyticsProjectTable() {
     ).join('');
 }
 
+function renderAnalyticsCatVendor() {
+  const pus = DB.purchases.filter(p=>p.type!=='income');
+
+  // Top categories
+  const catMap = {};
+  pus.forEach(p=>{ if(p.category){ catMap[p.category]=(catMap[p.category]||0)+Math.abs(p.amount); }});
+  const cats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxCat = cats[0]?.[1]||1;
+  const catEl = document.getElementById('an-cat-list');
+  if (catEl) catEl.innerHTML = cats.length ? cats.map(([name,amt])=>`
+    <div style="margin-bottom:0.65em">
+      <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.3em">
+        <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${name}</span>
+        <span style="font-weight:700;color:${AN_COLOR}">$${fmtShort(amt)}</span>
+      </div>
+      <div style="height:3px;border-radius:2px;background:var(--surface2)">
+        <div style="height:100%;width:${(amt/maxCat*100).toFixed(1)}%;background:${AN_COLOR};border-radius:2px;opacity:0.7"></div>
+      </div>
+    </div>`).join('') : '<div style="color:var(--muted);font-size:0.8rem">No data</div>';
+
+  // Top vendors
+  const venMap = {};
+  pus.forEach(p=>{ if(p.vendor){ venMap[p.vendor]=(venMap[p.vendor]||0)+Math.abs(p.amount); }});
+  const vens = Object.entries(venMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxVen = vens[0]?.[1]||1;
+  const venEl = document.getElementById('an-vendor-list');
+  if (venEl) venEl.innerHTML = vens.length ? vens.map(([name,amt])=>`
+    <div style="margin-bottom:0.65em">
+      <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.3em">
+        <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${name}</span>
+        <span style="font-weight:700;color:${AN_COLOR}">$${fmtShort(amt)}</span>
+      </div>
+      <div style="height:3px;border-radius:2px;background:var(--surface2)">
+        <div style="height:100%;width:${(amt/maxVen*100).toFixed(1)}%;background:${AN_COLOR};border-radius:2px;opacity:0.7"></div>
+      </div>
+    </div>`).join('') : '<div style="color:var(--muted);font-size:0.8rem">No data</div>';
+}
+
 function renderAnalytics() {
   renderAnalyticsMetricTotals();
   renderAnalyticsChart();
-  renderAnalyticsProjectTable();
+  renderAnalyticsCatVendor();
 }
 
 // ══ MODALS ══
