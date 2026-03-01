@@ -8,6 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Dark custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.13) transparent; }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
@@ -61,7 +67,7 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 .user-company { font-size: 0.8rem; color: var(--muted); }
 
 /* MAIN */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .topbar { height: 52px; flex-shrink: 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5em; gap: 1em; }
 .topbar-left { display: flex; align-items: center; gap: 0.4em; font-size: 0.82rem; color: var(--muted); }
 .topbar-left span { color: var(--text); font-weight: 600; }
@@ -74,7 +80,7 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 
 /* VIEWS */
 .view { display: none; }
-.view.active { display: block; }
+.view.active { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding-bottom: 1em; height: 100%; }
 
 /* EMPTY STATE */
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 0.8em; }
@@ -921,7 +927,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
 
       <!-- ANALYTICS -->
-      <div class="view" id="view-analytics">
+      <div class="view" id="view-analytics" style="overflow-y:auto;overflow-x:hidden">
         <div class="page-header">
           <div><div class="page-title">Analytics</div><div class="page-sub">Company-wide performance at a glance.</div></div>
         </div>
@@ -955,7 +961,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             </div>
             <div style="display:flex;gap:0.4em;flex-wrap:wrap;align-items:center;row-gap:0.4em"><div id="an-granularity-filters" style="display:flex;gap:0.4em"></div><div style="width:1px;height:18px;background:var(--border);margin:0 0.2em"></div><div id="an-mode-filters" style="display:flex;gap:0.4em"></div></div>
           </div>
-          <div id="an-chart-wrap" style="position:relative;width:100%;height:calc(100vh - 340px);min-height:200px;max-height:520px">
+          <div id="an-chart-wrap" style="position:relative;width:100%;height:calc(100vh - 390px);min-height:180px">
             <svg id="an-chart-svg" width="100%" height="100%" style="overflow:visible;display:block;position:absolute;inset:0"></svg>
             <div id="an-tooltip" style="position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.75rem;pointer-events:none;display:none;white-space:nowrap;z-index:10">
               <div id="an-tooltip-label" style="color:var(--muted);margin-bottom:0.2em;font-size:0.68rem"></div>
@@ -3138,9 +3144,9 @@ const AN_GRAD_START = 'rgba(74,143,240,0.22)';
 const AN_GRAD_END   = 'rgba(74,143,240,0)';
 
 const AN_METRIC_CFG = {
-  spending:     { label:'Spending',     fmtVal: v => '$' + fmtShort(Math.abs(v)) },
-  revenue:      { label:'Revenue',      fmtVal: v => '$' + fmtShort(Math.abs(v)) },
-  profit:       { label:'Profit',       fmtVal: v => (v < 0 ? '-' : '') + '$' + fmtShort(Math.abs(v)) },
+  spending:     { label:'Spending',     fmtVal: v => fmtShort(Math.abs(v)) },
+  revenue:      { label:'Revenue',      fmtVal: v => fmtShort(Math.abs(v)) },
+  profit:       { label:'Profit',       fmtVal: v => (v < 0 ? '-' : '') + fmtShort(Math.abs(v)) },
   transactions: { label:'Transactions', fmtVal: v => String(Math.round(Math.abs(v))) },
 };
 
@@ -3493,9 +3499,9 @@ function renderAnalyticsMetricTotals() {
   const totalRev    = pus.filter(p=>p.type==='income').reduce((s,p)=>s+Math.abs(p.amount),0);
   const totalProfit = totalRev - totalSpend;
   const set = (id,val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
-  set('anv-spending',     '$'+fmtShort(totalSpend));
-  set('anv-revenue',      '$'+fmtShort(totalRev));
-  set('anv-profit',       (totalProfit<0?'-':'')+'$'+fmtShort(Math.abs(totalProfit)));
+  set('anv-spending',     fmtShort(totalSpend));
+  set('anv-revenue',      fmtShort(totalRev));
+  set('anv-profit',       (totalProfit<0?'-':'')+fmtShort(Math.abs(totalProfit)));
   set('anv-transactions', String(pus.length));
   const profEl = document.getElementById('anv-profit');
   if (profEl) profEl.style.color = totalProfit<0?'var(--red)':'';
