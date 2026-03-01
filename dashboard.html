@@ -9,11 +9,12 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 /* Dark custom scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.13) transparent; }
+::-webkit-scrollbar-thumb { background: #3a3f4a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555c6b; }
+::-webkit-scrollbar-thumb:active { background: #6b7585; }
+* { scrollbar-width: thin; scrollbar-color: #3a3f4a transparent; }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
@@ -80,7 +81,7 @@ html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(-
 
 /* VIEWS */
 .view { display: none; }
-.view.active { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding-bottom: 1em; height: 100%; }
+.view.active { display: block; overflow-y: auto; overflow-x: hidden; }
 
 /* EMPTY STATE */
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 0.8em; }
@@ -243,13 +244,15 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .report-filter-btn { padding:0.4em 0.95em;border:1px solid var(--border);border-radius:0.45em;background:var(--surface2);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
 .report-filter-btn:hover { border-color:var(--border2);color:var(--text); }
 .report-filter-btn.active { background:var(--blue);border-color:var(--blue);color:#fff; }
-.an-metric-card { background:var(--surface);border:1px solid var(--border);border-radius:0.75em;padding:1.1em 1.25em;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none; }
+.an-metric-card { background:var(--surface);border:1px solid var(--border);border-radius:0.75em;padding:0.75em 1em;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none; }
 .an-metric-card:hover { border-color:var(--border2); }
 .an-metric-card.active { border-color:var(--blue);background:rgba(26,109,232,0.07); }
 .an-metric-label { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.4em; }
-.an-metric-val { font-size:1.35rem;font-weight:700;letter-spacing:-0.03em; }
+.an-metric-val { font-size:1.15rem;font-weight:700;letter-spacing:-0.03em; }
 .an-metric-card.active .an-metric-val { color:var(--blue-l); }
 .an-filter-pill { padding:0.35em 0.8em;border:1px solid var(--border);border-radius:0.4em;background:var(--surface2);color:var(--muted);font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
+#view-analytics { padding:1.25em 1.5em 0 1.5em; }
+#view-analytics.active { display:flex !important; flex-direction:column; height:100%; overflow:hidden; }
 .an-filter-pill:hover { border-color:var(--border2);color:var(--text); }
 .an-filter-pill.active { background:var(--surface3);border-color:var(--border2);color:var(--text); }
 .an-dot { cursor:pointer; }
@@ -927,13 +930,9 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
 
       <!-- ANALYTICS -->
-      <div class="view" id="view-analytics" style="overflow-y:auto;overflow-x:hidden">
-        <div class="page-header">
-          <div><div class="page-title">Analytics</div><div class="page-sub">Company-wide performance at a glance.</div></div>
-        </div>
-
+      <div class="view" id="view-analytics">
         <!-- Metric selector cards -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75em;margin-bottom:1.5em" id="analyticsMetricRow">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6em;margin-bottom:0.75em;flex-shrink:0" id="analyticsMetricRow">
           <div class="an-metric-card active" data-metric="spending" onclick="selectMetric('spending')">
             <div class="an-metric-label">Spending</div>
             <div class="an-metric-val" id="anv-spending">—</div>
@@ -953,15 +952,15 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         </div>
 
         <!-- Chart area -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.5em 1.5em 1em;margin-bottom:0.75em;position:relative">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25em;flex-wrap:wrap;gap:0.75em">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1em 1.25em 0.75em;margin-bottom:0.6em;position:relative;flex:1;display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.75em;flex-wrap:wrap;gap:0.5em;flex-shrink:0">
             <div>
               <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.25em" id="an-chart-label">Spending Over Time</div>
-              <div style="font-size:1.6rem;font-weight:700;letter-spacing:-0.04em" id="an-chart-total">—</div>
+              <div style="font-size:1.3rem;font-weight:700;letter-spacing:-0.04em" id="an-chart-total">—</div>
             </div>
             <div style="display:flex;gap:0.4em;flex-wrap:wrap;align-items:center;row-gap:0.4em"><div id="an-granularity-filters" style="display:flex;gap:0.4em"></div><div style="width:1px;height:18px;background:var(--border);margin:0 0.2em"></div><div id="an-mode-filters" style="display:flex;gap:0.4em"></div></div>
           </div>
-          <div id="an-chart-wrap" style="position:relative;width:100%;height:calc(100vh - 390px);min-height:180px">
+          <div id="an-chart-wrap" style="position:relative;width:100%;flex:1;min-height:0">
             <svg id="an-chart-svg" width="100%" height="100%" style="overflow:visible;display:block;position:absolute;inset:0"></svg>
             <div id="an-tooltip" style="position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.75rem;pointer-events:none;display:none;white-space:nowrap;z-index:10">
               <div id="an-tooltip-label" style="color:var(--muted);margin-bottom:0.2em;font-size:0.68rem"></div>
@@ -975,7 +974,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         </div>
 
         <!-- Period filter pills -->
-        <div style="display:flex;gap:0.5em;margin-bottom:1.5em" id="an-period-filters"></div>
+        <div style="display:flex;gap:0.5em;margin-top:0.6em;flex-shrink:0" id="an-period-filters"></div>
 
 
 
