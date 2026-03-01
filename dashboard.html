@@ -1453,7 +1453,7 @@ async function sbSaveCompany() {
 // ── Load all data from Supabase ──
 async function loadFromSupabase() {
   let session = await refreshSessionIfNeeded();
-  if (!session?.access_token) { window.location.replace('auth.html'); return false; }
+  if (!session?.access_token) { setSession(null); localStorage.removeItem('forge_company_id'); window.location.replace('auth.html'); return false; }
 
   try {
     const uid  = session.user?.id || getSession()?.user?.id;
@@ -1861,7 +1861,7 @@ async function init() {
   // Show loading state
   document.body.style.opacity = '0';
   const ok = await loadFromSupabase();
-  if (!ok) { window.location.replace('auth.html'); return; }
+  if (!ok) { setSession(null); localStorage.removeItem('forge_company_id'); window.location.replace('auth.html'); return; }
   document.body.style.transition = 'opacity 0.3s ease';
   document.body.style.opacity = '1';
   const initials = ((DB.firstName||'?')[0]+(DB.lastName||'?')[0]).toUpperCase();
