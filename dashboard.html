@@ -237,6 +237,18 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 .report-filter-btn { padding:0.4em 0.95em;border:1px solid var(--border);border-radius:0.45em;background:var(--surface2);color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
 .report-filter-btn:hover { border-color:var(--border2);color:var(--text); }
 .report-filter-btn.active { background:var(--blue);border-color:var(--blue);color:#fff; }
+.an-metric-card { background:var(--surface);border:1px solid var(--border);border-radius:0.75em;padding:1.1em 1.25em;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none; }
+.an-metric-card:hover { border-color:var(--border2); }
+.an-metric-card.active { border-color:var(--blue);background:rgba(26,109,232,0.07); }
+.an-metric-label { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.4em; }
+.an-metric-val { font-size:1.35rem;font-weight:700;letter-spacing:-0.03em; }
+.an-metric-card.active .an-metric-val { color:var(--blue-l); }
+.an-filter-pill { padding:0.35em 0.8em;border:1px solid var(--border);border-radius:0.4em;background:var(--surface2);color:var(--muted);font-size:0.75rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.12s; }
+.an-filter-pill:hover { border-color:var(--border2);color:var(--text); }
+.an-filter-pill.active { background:var(--surface3);border-color:var(--border2);color:var(--text); }
+.an-proj-row { display:grid;grid-template-columns:1fr 100px 100px 90px 140px;gap:0.5em;align-items:center;padding:0.85em 1.15em;border-bottom:1px solid var(--border);font-size:0.83rem; }
+.an-proj-row:last-child { border-bottom:none; }
+.an-proj-head { font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);padding:0.65em 1.15em;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 100px 100px 90px 140px;gap:0.5em; }
 
 /* MODAL */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.18s; padding: 1rem; }
@@ -683,6 +695,10 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="1" width="10" height="12" rx="1.2" stroke="currentColor" stroke-width="1.4"/><path d="M4 4h6M4 7h6M4 10h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           Reports
         </div>
+        <div class="nav-item" onclick="showView('analytics')" id="nav-analytics">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 11l3.5-4 3 2.5L11 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="4" r="1.2" fill="currentColor"/></svg>
+          Analytics
+        </div>
       </div>
       <div class="divider"></div>
       <div class="sidebar-section">
@@ -898,6 +914,64 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <div class="empty-sub">No projects match this filter.</div>
         </div>
       </div>
+
+      <!-- ANALYTICS -->
+      <div class="view" id="view-analytics">
+        <div class="page-header">
+          <div><div class="page-title">Analytics</div><div class="page-sub">Company-wide performance at a glance.</div></div>
+        </div>
+
+        <!-- Metric selector cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75em;margin-bottom:1.5em" id="analyticsMetricRow">
+          <div class="an-metric-card active" data-metric="spending" onclick="selectMetric('spending')">
+            <div class="an-metric-label">Spending</div>
+            <div class="an-metric-val" id="anv-spending">—</div>
+          </div>
+          <div class="an-metric-card" data-metric="revenue" onclick="selectMetric('revenue')">
+            <div class="an-metric-label">Revenue</div>
+            <div class="an-metric-val" id="anv-revenue">—</div>
+          </div>
+          <div class="an-metric-card" data-metric="profit" onclick="selectMetric('profit')">
+            <div class="an-metric-label">Profit</div>
+            <div class="an-metric-val" id="anv-profit">—</div>
+          </div>
+          <div class="an-metric-card" data-metric="transactions" onclick="selectMetric('transactions')">
+            <div class="an-metric-label">Transactions</div>
+            <div class="an-metric-val" id="anv-transactions">—</div>
+          </div>
+        </div>
+
+        <!-- Chart area -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.5em 1.5em 1em;margin-bottom:0.75em;position:relative">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25em;flex-wrap:wrap;gap:0.75em">
+            <div>
+              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.25em" id="an-chart-label">Spending Over Time</div>
+              <div style="font-size:1.6rem;font-weight:700;letter-spacing:-0.04em" id="an-chart-total">—</div>
+            </div>
+            <div style="display:flex;gap:0.4em;flex-wrap:wrap" id="an-granularity-filters"></div>
+          </div>
+          <div id="an-chart-wrap" style="position:relative;height:180px;width:100%">
+            <svg id="an-chart-svg" width="100%" height="180" style="overflow:visible;display:block"></svg>
+            <div id="an-tooltip" style="position:absolute;background:var(--surface2);border:1px solid var(--border2);border-radius:0.45em;padding:0.5em 0.75em;font-size:0.75rem;pointer-events:none;display:none;white-space:nowrap;z-index:10">
+              <div id="an-tooltip-label" style="color:var(--muted);margin-bottom:0.2em;font-size:0.68rem"></div>
+              <div id="an-tooltip-val" style="font-weight:700"></div>
+            </div>
+          </div>
+          <div id="an-no-data" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:0.5em;color:var(--muted);font-size:0.85rem;border-radius:0.9em;background:var(--surface)">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M4 24l7-9 6 5 8-12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/></svg>
+            No data for this period
+          </div>
+        </div>
+
+        <!-- Period filter pills -->
+        <div style="display:flex;gap:0.4em;margin-bottom:1.75em;flex-wrap:wrap" id="an-period-filters"></div>
+
+        <!-- Project comparison table -->
+        <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.75em">Project Breakdown</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;overflow:hidden" id="an-proj-table"></div>
+
+      </div>
+
     </div>
   </div>
 
@@ -1907,6 +1981,7 @@ async function init() {
 // ══ RENDER ALL ══
 function renderAll() {
   renderSidebar(); renderDashboard(); renderAllPurchases(); renderTeam(); renderAlerts(); renderReports(); updateAlertsBadge();
+  if (activeView === 'analytics') renderAnalytics();
 }
 
 // ══ SIDEBAR ══
@@ -1934,6 +2009,7 @@ function showView(name) {
   localStorage.setItem('forge_view', name);
   localStorage.removeItem('forge_project');
   renderSidebar(); updateTopbar();
+  if (name === 'analytics') renderAnalytics();
 }
 
 function openProject(idx) {
@@ -1955,6 +2031,7 @@ function updateTopbar() {
     team:      ['Team',      ''],
     alerts:    ['Alerts',    ''],
     reports:   ['Reports',   ''],
+    analytics: ['Analytics', ''],
   };
   if (activeView === 'project' && activeProject !== null) {
     const p = DB.projects[activeProject];
@@ -3045,6 +3122,299 @@ function copyReportLink() {
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
   });
+}
+
+// ══ ANALYTICS ══
+let anMetric    = 'spending';
+let anGranularity = 'weekly';
+let anPeriod    = '3m';
+
+const AN_METRIC_CFG = {
+  spending:     { label:'Spending Over Time',     color:'#e84040', gradStart:'rgba(232,64,64,0.18)',   gradEnd:'rgba(232,64,64,0)',   fmt: v=>'$'+fmtShort(v) },
+  revenue:      { label:'Revenue Over Time',      color:'#0da068', gradStart:'rgba(13,160,104,0.18)',  gradEnd:'rgba(13,160,104,0)',  fmt: v=>'$'+fmtShort(v) },
+  profit:       { label:'Profit Over Time',       color:'#1a6de8', gradStart:'rgba(26,109,232,0.18)',  gradEnd:'rgba(26,109,232,0)',  fmt: v=>'$'+fmtShort(v) },
+  transactions: { label:'Transactions Over Time', color:'#a78bfa', gradStart:'rgba(167,139,250,0.18)', gradEnd:'rgba(167,139,250,0)', fmt: v=>v+' txn' },
+};
+
+const AN_GRANULARITY = [
+  { id:'daily',   label:'Daily'   },
+  { id:'weekly',  label:'Weekly'  },
+  { id:'monthly', label:'Monthly' },
+];
+
+const AN_PERIODS = [
+  { id:'1m',  label:'This Month'    },
+  { id:'3m',  label:'3 Months'      },
+  { id:'6m',  label:'6 Months'      },
+  { id:'1y',  label:'This Year'     },
+  { id:'all', label:'All Time'      },
+];
+
+function selectMetric(m) {
+  anMetric = m;
+  document.querySelectorAll('.an-metric-card').forEach(el => el.classList.toggle('active', el.dataset.metric === m));
+  renderAnalyticsChart();
+}
+
+function selectGranularity(g) {
+  anGranularity = g;
+  renderAnalyticsChart();
+}
+
+function selectPeriod(p) {
+  anPeriod = p;
+  renderAnalyticsChart();
+}
+
+function anPeriodRange() {
+  const now = new Date();
+  const end = new Date(now); end.setHours(23,59,59,999);
+  let start;
+  if (anPeriod === '1m') { start = new Date(now.getFullYear(), now.getMonth(), 1); }
+  else if (anPeriod === '3m') { start = new Date(now); start.setMonth(start.getMonth()-3); start.setDate(1); }
+  else if (anPeriod === '6m') { start = new Date(now); start.setMonth(start.getMonth()-6); start.setDate(1); }
+  else if (anPeriod === '1y') { start = new Date(now.getFullYear(), 0, 1); }
+  else {
+    // All time — find earliest purchase date
+    const dates = DB.purchases.map(p=>p.date).filter(Boolean).sort();
+    start = dates.length ? new Date(dates[0]+'T00:00:00') : new Date(now.getFullYear(), 0, 1);
+  }
+  return { start, end };
+}
+
+function anBucketKey(date, gran) {
+  const d = new Date(date+'T12:00:00');
+  if (gran === 'daily')   return d.toISOString().slice(0,10);
+  if (gran === 'monthly') return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  // weekly — ISO week start (Monday)
+  const day = d.getDay() || 7;
+  const mon = new Date(d); mon.setDate(d.getDate()-day+1);
+  return mon.toISOString().slice(0,10);
+}
+
+function anBucketLabel(key, gran) {
+  if (gran === 'monthly') {
+    const [y,m] = key.split('-');
+    return new Date(y, m-1, 1).toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+  }
+  const d = new Date(key+'T12:00:00');
+  if (gran === 'daily') return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return 'Wk '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+function anGetSeriesData() {
+  const { start, end } = anPeriodRange();
+  const purchases = DB.purchases.filter(p => {
+    if (!p.date) return false;
+    const d = new Date(p.date+'T12:00:00');
+    return d >= start && d <= end;
+  });
+
+  const buckets = {};
+  purchases.forEach(p => {
+    const key = anBucketKey(p.date, anGranularity);
+    if (!buckets[key]) buckets[key] = { spending:0, revenue:0, profit:0, transactions:0 };
+    const amt = Math.abs(p.amount);
+    if (p.type === 'income') { buckets[key].revenue += amt; buckets[key].profit += amt; }
+    else { buckets[key].spending += amt; buckets[key].profit -= amt; }
+    buckets[key].transactions += 1;
+  });
+
+  // Generate all bucket keys in range so there are no gaps
+  const keys = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    keys.push(anBucketKey(cur.toISOString().slice(0,10), anGranularity));
+    if (anGranularity === 'daily')   cur.setDate(cur.getDate()+1);
+    else if (anGranularity === 'weekly')  cur.setDate(cur.getDate()+7);
+    else cur.setMonth(cur.getMonth()+1);
+  }
+  const uniq = [...new Set(keys)];
+  return uniq.map(k => ({ key:k, label:anBucketLabel(k,anGranularity), value: buckets[k]?.[anMetric] || 0 }));
+}
+
+function drawChart(points, cfg) {
+  const svg = document.getElementById('an-chart-svg');
+  const noData = document.getElementById('an-no-data');
+  const wrap = document.getElementById('an-chart-wrap');
+  if (!svg) return;
+
+  const maxVal = Math.max(...points.map(p=>p.value), 1);
+  const hasData = points.some(p=>p.value>0);
+
+  if (!hasData) {
+    svg.innerHTML = '';
+    noData.style.display = 'flex';
+    return;
+  }
+  noData.style.display = 'none';
+
+  const W = wrap.clientWidth || 700;
+  const H = 180;
+  const pad = { top:16, right:16, bottom:36, left:0 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+  const n  = points.length;
+
+  const x = i => pad.left + (n <= 1 ? cW/2 : (i/(n-1))*cW);
+  const y = v => pad.top + cH - (v/maxVal)*cH;
+
+  // Build path
+  const pts = points.map((p,i) => [x(i), y(p.value)]);
+  const pathD = pts.map((p,i)=>( i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const areaD = pathD + ' L'+pts[pts.length-1][0].toFixed(1)+' '+(pad.top+cH)+' L'+pts[0][0].toFixed(1)+' '+(pad.top+cH)+' Z';
+
+  const gradId = 'an-grad-'+anMetric;
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${cfg.gradStart}"/>
+        <stop offset="100%" stop-color="${cfg.gradEnd}"/>
+      </linearGradient>
+    </defs>
+    <!-- Grid lines -->
+    ${[0,0.25,0.5,0.75,1].map(f=>{
+      const yy = (pad.top + cH*(1-f)).toFixed(1);
+      const lbl = f===0?'':cfg.fmt(maxVal*f);
+      return `<line x1="${pad.left}" y1="${yy}" x2="${W}" y2="${yy}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+              <text x="${pad.left}" y="${(parseFloat(yy)-4).toFixed(1)}" fill="rgba(255,255,255,0.2)" font-size="9" font-family="JetBrains Mono,monospace">${lbl}</text>`;
+    }).join('')}
+    <!-- Area fill -->
+    <path d="${areaD}" fill="url(#${gradId})"/>
+    <!-- Line -->
+    <path d="${pathD}" fill="none" stroke="${cfg.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Dots + hit areas -->
+    ${pts.map((p,i)=>`
+      <circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${cfg.color}" opacity="0.9"/>
+      <circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="14" fill="transparent" class="an-hit"
+        data-label="${points[i].label}" data-val="${cfg.fmt(points[i].value)}"
+        data-x="${p[0].toFixed(1)}" data-y="${p[1].toFixed(1)}"
+        onmouseenter="anShowTooltip(event,this)" onmouseleave="anHideTooltip()"/>
+    `).join('')}
+    <!-- X axis labels — show ~6 evenly spaced -->
+    ${points.filter((_,i)=> n<=8 || i%(Math.ceil(n/6))===0).map((pt,_,arr)=>{
+      const idx = points.indexOf(pt);
+      const px = x(idx).toFixed(1);
+      return `<text x="${px}" y="${(pad.top+cH+20).toFixed(1)}" fill="rgba(255,255,255,0.3)" font-size="9.5" font-family="DM Sans,sans-serif" text-anchor="middle">${pt.label}</text>`;
+    }).join('')}
+  `;
+}
+
+function anShowTooltip(e, el) {
+  const tt = document.getElementById('an-tooltip');
+  const wrap = document.getElementById('an-chart-wrap');
+  if (!tt||!wrap) return;
+  document.getElementById('an-tooltip-label').textContent = el.dataset.label;
+  document.getElementById('an-tooltip-val').textContent   = el.dataset.val;
+  const rect = wrap.getBoundingClientRect();
+  const cx = parseFloat(el.dataset.x), cy = parseFloat(el.dataset.y);
+  let left = cx + 12, top = cy - 38;
+  if (left + 120 > wrap.clientWidth) left = cx - 130;
+  if (top < 0) top = cy + 10;
+  tt.style.left = left + 'px';
+  tt.style.top  = top  + 'px';
+  tt.style.display = 'block';
+}
+function anHideTooltip() {
+  const tt = document.getElementById('an-tooltip');
+  if (tt) tt.style.display = 'none';
+}
+
+function renderAnalyticsChart() {
+  const cfg = AN_METRIC_CFG[anMetric];
+
+  // Update chart label and total
+  const lbl = document.getElementById('an-chart-label');
+  const tot = document.getElementById('an-chart-total');
+  if (lbl) lbl.textContent = cfg.label;
+
+  // Render granularity filters
+  const gf = document.getElementById('an-granularity-filters');
+  if (gf) gf.innerHTML = AN_GRANULARITY.map(g=>
+    `<button class="an-filter-pill${anGranularity===g.id?' active':''}" onclick="selectGranularity('${g.id}')">${g.label}</button>`
+  ).join('');
+
+  // Render period filters
+  const pf = document.getElementById('an-period-filters');
+  if (pf) pf.innerHTML = AN_PERIODS.map(p=>
+    `<button class="an-filter-pill${anPeriod===p.id?' active':''}" onclick="selectPeriod('${p.id}')">${p.label}</button>`
+  ).join('');
+
+  const points = anGetSeriesData();
+  const total  = points.reduce((s,p)=>s+p.value,0);
+  if (tot) {
+    tot.textContent = cfg.fmt(total);
+    tot.style.color = anMetric==='profit' && total<0 ? 'var(--red)' : cfg.color;
+  }
+
+  drawChart(points, cfg);
+}
+
+function renderAnalyticsMetricTotals() {
+  const pus = DB.purchases;
+  const totalSpend  = pus.filter(p=>p.type!=='income').reduce((s,p)=>s+Math.abs(p.amount),0);
+  const totalRev    = pus.filter(p=>p.type==='income').reduce((s,p)=>s+Math.abs(p.amount),0);
+  const totalProfit = totalRev - totalSpend;
+
+  const els = {
+    'anv-spending':     '$'+fmtShort(totalSpend),
+    'anv-revenue':      '$'+fmtShort(totalRev),
+    'anv-profit':       (totalProfit<0?'-':'')+'$'+fmtShort(Math.abs(totalProfit)),
+    'anv-transactions': pus.length+' total',
+  };
+  Object.entries(els).forEach(([id,val])=>{
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = val;
+      if (id==='anv-profit') el.style.color = totalProfit<0?'var(--red)':'';
+    }
+  });
+}
+
+function renderAnalyticsProjectTable() {
+  const el = document.getElementById('an-proj-table');
+  if (!el) return;
+  if (!DB.projects.length) { el.innerHTML='<div style="padding:2em;text-align:center;color:var(--muted);font-size:0.85rem">No projects yet</div>'; return; }
+
+  const rows = DB.projects.map((p,i) => {
+    const pus   = DB.purchases.filter(x=>x.projectIdx===i);
+    const spent = spentFromPurchases(pus);
+    const rem   = (p.budget||0) - spent;
+    const pct   = p.budget>0 ? Math.round(spent/p.budget*100) : 0;
+    const col   = pct>100?'var(--red)':pct>85?'var(--orange)':'var(--green)';
+    const status = getProjectStatus(p);
+    const statusLabel = status==='in-progress'?'In Progress':status==='upcoming'?'Upcoming':'Completed';
+    const statusCol   = status==='in-progress'?'var(--green)':status==='upcoming'?'var(--blue-l)':'var(--muted)';
+    return { p,i,spent,rem,pct,col,statusLabel,statusCol };
+  }).sort((a,b)=>b.spent-a.spent);
+
+  el.innerHTML =
+    `<div class="an-proj-head">
+      <div>Project</div><div style="text-align:right">Budget</div><div style="text-align:right">Spent</div><div style="text-align:right">Status</div><div>Progress</div>
+    </div>` +
+    rows.map(({p,i,spent,rem,pct,col,statusLabel,statusCol})=>
+      `<div class="an-proj-row" style="cursor:pointer" onclick="openProject(${i})">
+        <div style="display:flex;align-items:center;gap:0.6em;min-width:0">
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        </div>
+        <div style="text-align:right;color:var(--text2)">$${fmt(p.budget||0)}</div>
+        <div style="text-align:right;font-weight:600;color:${col}">$${fmt(spent)}</div>
+        <div style="text-align:right;font-size:0.75rem;font-weight:700;color:${statusCol}">${statusLabel}</div>
+        <div style="display:flex;align-items:center;gap:0.5em">
+          <div style="flex:1;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,pct)}%;background:${col};border-radius:3px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1)"></div>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text2);width:2.5em;text-align:right;flex-shrink:0">${pct}%</div>
+        </div>
+      </div>`
+    ).join('');
+}
+
+function renderAnalytics() {
+  renderAnalyticsMetricTotals();
+  renderAnalyticsChart();
+  renderAnalyticsProjectTable();
 }
 
 // ══ MODALS ══
