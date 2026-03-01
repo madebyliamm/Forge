@@ -1295,25 +1295,47 @@ function setSession(s) {
 
 // Refresh the access token using the refresh_token if the current one is expired or close to expiring
 async function refreshSessionIfNeeded() {
-  const session = getSession();
-  if (!session) return null;
-  // expires_at is in seconds; refresh if within 60 seconds of expiry or already expired
+  let session = getSession();
+  if (!session?.access_token) return null;
+
+  // Normalize: compute expires_at from expires_in if missing
+  if (!session.expires_at && session.expires_in) {
+    session.expires_at = Math.floor(Date.now() / 1000) + session.expires_in;
+    setSession(session);
+  }
+
   const expiresAt = session.expires_at ? session.expires_at * 1000 : null;
-  const needsRefresh = !expiresAt || (expiresAt - Date.now()) < 60000;
+  // Only refresh if we know it's expiring soon (within 2 min) — if no expires_at, assume valid
+  const needsRefresh = expiresAt && (expiresAt - Date.now()) < 120000;
   if (!needsRefresh) return session;
-  if (!session.refresh_token) return session; // can't refresh, just try with what we have
+  if (!session.refresh_token) return session;
+
   try {
     const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
       method: 'POST',
       headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: session.refresh_token })
     });
-    if (!res.ok) { setSession(null); localStorage.removeItem('forge_company_id'); return null; }
+    if (!res.ok) {
+      // Refresh failed — if token is truly expired, clear. Otherwise keep trying with current token.
+      if (expiresAt && expiresAt < Date.now()) {
+        setSession(null);
+        localStorage.removeItem('forge_company_id');
+        return null;
+      }
+      return session; // not expired yet, use what we have
+    }
     const fresh = await res.json();
-    setSession(fresh);
-    return fresh;
+    if (fresh.access_token) {
+      if (!fresh.expires_at && fresh.expires_in) {
+        fresh.expires_at = Math.floor(Date.now() / 1000) + fresh.expires_in;
+      }
+      setSession(fresh);
+      return fresh;
+    }
+    return session;
   } catch(e) {
-    return session; // network error — try with existing token
+    return session; // network error — use existing token
   }
 }
 
@@ -1449,12 +1471,19 @@ async function loadFromSupabase() {
     const adminCompanies = await sbGet('companies', 'owner_id=eq.' + uid + '&select=*&limit=1');
     if (adminCompanies.length) {
       co = adminCompanies[0];
-      // Keep localStorage in sync
       localStorage.setItem('forge_company_id', co.id);
-    } else if (cachedCompanyId) {
-      // Worker — look up by cached company_id
-      const workerCompanies = await sbGet('companies', 'id=eq.' + cachedCompanyId + '&select=*&limit=1');
-      if (workerCompanies.length) { co = workerCompanies[0]; isWorker = true; }
+    } else {
+      // Worker — find company via team_members row (most reliable)
+      const myMemberships = await sbGet('team_members', 'user_id=eq.' + uid + '&select=company_id&limit=1').catch(() => []);
+      const workerCompanyId = myMemberships[0]?.company_id || cachedCompanyId;
+      if (workerCompanyId) {
+        const workerCompanies = await sbGet('companies', 'id=eq.' + workerCompanyId + '&select=*&limit=1').catch(() => []);
+        if (workerCompanies.length) {
+          co = workerCompanies[0];
+          isWorker = true;
+          localStorage.setItem('forge_company_id', co.id);
+        }
+      }
     }
 
     // No company found — sign out cleanly, don't loop
