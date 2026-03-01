@@ -676,7 +676,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
         </div>
         <div class="nav-item" onclick="showView('alerts')" id="nav-alerts">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1a4 4 0 014 4v3l1 2H2l1-2V5a4 4 0 014-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 12a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-          Alerts
+          Notifications
           <span class="nav-badge" id="alertsBadge" style="display:none">0</span>
         </div>
         <div class="nav-item" onclick="showView('reports')" id="nav-reports">
@@ -866,13 +866,17 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <!-- ALERTS -->
       <div class="view" id="view-alerts">
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div class="page-title">Alerts</div><div class="page-sub">Issues that need your attention across all projects.</div></div>
+          <div><div class="page-title">Notifications</div><div class="page-sub">Activity and alerts across your company.</div></div>
+          <button class="tb-btn" id="markAllReadBtn" onclick="markAllRead()" style="font-size:0.78rem;display:none">Mark all read</button>
         </div>
-        <div class="table-wrap" id="alertsList"></div>
+        <!-- Budget Alerts section -->
+        <div id="budgetAlertsWrap" style="margin-bottom:1.25em"></div>
+        <!-- Activity notifications -->
+        <div id="notifList" style="display:flex;flex-direction:column;gap:0.5em"></div>
         <div class="empty-state" id="alertsEmpty" style="display:none">
-          <div class="empty-icon">✅</div>
-          <div class="empty-title">All clear</div>
-          <div class="empty-sub">No alerts right now. Your projects are on track.</div>
+          <div class="empty-icon">🔔</div>
+          <div class="empty-title">No notifications yet</div>
+          <div class="empty-sub">Activity from your team will show up here.</div>
         </div>
       </div>
 
@@ -1464,10 +1468,11 @@ async function loadFromSupabase() {
     COMPANY_ID = co.id;
 
     // ── Load all data in parallel (fail gracefully so one bad query can't loop) ──
-    const [projects, purchases, subs, team] = await Promise.all([
+    const [projects, purchases, subs, notifications, team] = await Promise.all([
       sbGet('projects',     'company_id=eq.' + COMPANY_ID + '&order=sort_order.asc').catch(() => []),
       sbGet('purchases',    'company_id=eq.' + COMPANY_ID + '&order=ts.desc').catch(() => []),
       sbGet('subs',         'company_id=eq.' + COMPANY_ID + '&order=name.asc').catch(() => []),
+      sbGet('notifications', 'company_id=eq.' + COMPANY_ID + '&order=created_at.desc&limit=100').catch(() => []),
       sbGet('team_members', 'company_id=eq.' + COMPANY_ID).catch(() => [])
     ]);
 
@@ -1519,9 +1524,31 @@ async function loadFromSupabase() {
       subs: (subs || []).map(s => ({
         _id: s.id, name: s.name, trade: s.trade || '',
         projects: s.projects || []
+      })),
+      notifications: (notifications || []).map(n => ({
+        _id: n.id, type: n.type, title: n.title, body: n.body,
+        read: n.read || false, createdAt: n.created_at,
+        projectIdx: n.project_idx !== null && n.project_idx !== undefined
+          ? projects.findIndex(p => p.id === n.project_id) : undefined,
+        actorName: n.actor_name || '',
       }))
     };
 
+    // Detect new members joining via invite (compare to last known count)
+    const prevCount = parseInt(localStorage.getItem('forge_team_count')||'0');
+    const currCount = DB.team.length;
+    if (prevCount > 0 && currCount > prevCount) {
+      // Find new members (ones not in notifications already)
+      const existingNames = new Set((DB.notifications||[]).filter(n=>n.type==='member_join').map(n=>n.title.split(' joined')[0]));
+      const newest = DB.team.slice(-( currCount - prevCount));
+      newest.forEach(m => {
+        const name = (m.firstName+' '+m.lastName).trim();
+        if (!existingNames.has(name)) {
+          pushNotif('member_join', name+' joined your team', (m.email||'New worker')+' joined via invite link.', {});
+        }
+      });
+    }
+    localStorage.setItem('forge_team_count', currCount);
     return true;
 
   } catch(err) {
@@ -1679,6 +1706,7 @@ function saveLaborModal() {
   sbSaveProject(proj, projIdx).catch(console.error);
   if (proj.laborEnabled) upsertLaborTransaction(projIdx);
   renderProjectDetail(projIdx);
+  pushNotif('labor_saved', 'Labor estimate updated on '+proj.name, 'Budget allocation and hours updated.', {projectIdx:projIdx});
 }
 
 function toggleLaborEditPanel(projIdx) {
@@ -2440,6 +2468,10 @@ function addSubProjectEntry() {
   }
   renderSubProjectList(currentSubIdx);
   renderSubs();
+  if (contractAmt > 0) {
+    const proj = DB.projects[projIdx];
+    pushNotif('sub_added', s.name+' added to '+(proj?.name||'project'), '$'+fmt(contractAmt)+' contract · '+status+(s.trade?' · '+s.trade:''), {projectIdx:projIdx});
+  }
 }
 
 function removeSubProject(subIdx, entryIdx) {
@@ -2636,6 +2668,8 @@ function promoteMember(idx) {
       try {
         await sbPatch('team_members', 'id=eq.' + m._id, { role: newRole, permissions: newPerms });
       } catch(e) { console.error('promote failed', e); }
+      const pType = newRole==='Admin' ? 'promoted' : 'demoted';
+      pushNotif(pType, m.firstName+' '+(m.lastName||'')+' '+(newRole==='Admin'?'promoted to Admin':'demoted to Worker'), newRole==='Admin'?m.firstName+' now has full admin access.':m.firstName+' is now a standard worker.', {});
     },
     action,
     action
@@ -2745,32 +2779,146 @@ function toggleTeamHeaderMenu() {
 }
 
 // ══ ALERTS ══
+// ══ NOTIFICATIONS ══
+async function pushNotif(type, title, body, extras) {
+  if (!COMPANY_ID) return;
+  const me = ((DB.firstName||'')+' '+(DB.lastName||'')).trim() || 'System';
+  const notif = {
+    _id: null, type, title, body, read: false,
+    actorName: me, createdAt: new Date().toISOString(),
+    projectIdx: extras?.projectIdx,
+  };
+  DB.notifications.unshift(notif);
+  updateAlertsBadge();
+  // Persist to Supabase
+  const payload = {
+    company_id:  COMPANY_ID,
+    type, title, body,
+    actor_name:  me,
+    project_id:  extras?.projectIdx !== undefined ? (DB.projects[extras.projectIdx]?._id || null) : null,
+    project_idx: extras?.projectIdx ?? null,
+    read:        false,
+  };
+  sbPost('notifications', payload).then(rows => {
+    if (rows?.[0]?.id) notif._id = rows[0].id;
+  }).catch(console.error);
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(diff/3600000), d = Math.floor(diff/86400000);
+  if (d > 6)  return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  if (d >= 1) return d+'d ago';
+  if (h >= 1) return h+'h ago';
+  if (m >= 1) return m+'m ago';
+  return 'Just now';
+}
+
+const NOTIF_ICONS = {
+  member_join:    { icon:'👤', bg:'rgba(26,109,232,0.12)',  color:'var(--blue-l)' },
+  promoted:       { icon:'⭐', bg:'rgba(217,149,32,0.12)',  color:'#d99520' },
+  demoted:        { icon:'⬇️', bg:'rgba(255,255,255,0.06)', color:'var(--muted)' },
+  project_create: { icon:'📁', bg:'rgba(26,109,232,0.1)',   color:'var(--blue-l)' },
+  assigned:       { icon:'📌', bg:'rgba(13,160,104,0.12)',  color:'var(--green)' },
+  transaction:    { icon:'💰', bg:'rgba(13,160,104,0.1)',   color:'var(--green)' },
+  hourly_rate:    { icon:'💵', bg:'rgba(217,149,32,0.1)',   color:'#d99520' },
+  budget_alert:   { icon:'⚠️', bg:'rgba(232,64,64,0.1)',    color:'var(--red)' },
+  sub_added:      { icon:'🔧', bg:'rgba(26,109,232,0.08)',  color:'var(--blue-l)' },
+  labor_saved:    { icon:'⏱', bg:'rgba(26,109,232,0.08)',   color:'var(--blue-l)' },
+  default:        { icon:'🔔', bg:'rgba(255,255,255,0.06)', color:'var(--text2)' },
+};
+
 function updateAlertsBadge() {
-  const alerts   = computeAlerts();
-  const badge    = document.getElementById('alertsBadge');
-  const critical = alerts.filter(a=>a.severity==='critical'||a.severity==='high').length;
-  if (critical > 0) { badge.style.display='grid'; badge.textContent=critical; }
+  const badge   = document.getElementById('alertsBadge');
+  const budgetAlerts = computeAlerts();
+  const unread  = (DB.notifications||[]).filter(n=>!n.read).length;
+  const total   = unread + budgetAlerts.filter(a=>a.severity==='critical'||a.severity==='high').length;
+  if (total > 0) { badge.style.display='grid'; badge.textContent=total>99?'99+':total; }
   else { badge.style.display='none'; }
 }
 
+function markAllRead() {
+  const unread = DB.notifications.filter(n=>!n.read);
+  unread.forEach(n => {
+    n.read = true;
+    if (n._id) sbPatch('notifications','id=eq.'+n._id,{read:true}).catch(console.error);
+  });
+  updateAlertsBadge();
+  renderAlerts();
+}
+
 function renderAlerts() {
-  const alerts = computeAlerts();
-  const list   = document.getElementById('alertsList');
-  const empty  = document.getElementById('alertsEmpty');
-  if (!alerts.length) { list.style.display='none'; empty.style.display='flex'; return; }
-  list.style.display='block'; empty.style.display='none';
+  const empty   = document.getElementById('alertsEmpty');
+  const notifs  = DB.notifications || [];
+  const budgets = computeAlerts();
+  const markBtn = document.getElementById('markAllReadBtn');
 
-  const sevCfg = {
-    critical: { color:'var(--red)',    bg:'rgba(232,64,64,0.12)',  label:'Critical', cls:'tag-red'    },
-    high:     { color:'var(--red)',    bg:'rgba(232,64,64,0.08)',  label:'High',     cls:'tag-red'    },
-    medium:   { color:'var(--orange)', bg:'rgba(217,149,32,0.1)', label:'Medium',   cls:'tag-orange' },
-    low:      { color:'var(--blue-l)', bg:'rgba(26,109,232,0.08)',label:'Low',      cls:'tag-blue'   },
-  };
+  // Budget alerts section
+  const budgetWrap = document.getElementById('budgetAlertsWrap');
+  if (budgetWrap) {
+    if (budgets.length) {
+      const sevCfg = {
+        critical: { color:'var(--red)',    bg:'rgba(232,64,64,0.1)',  label:'Critical' },
+        high:     { color:'var(--red)',    bg:'rgba(232,64,64,0.07)', label:'High'     },
+        medium:   { color:'var(--orange)', bg:'rgba(217,149,32,0.09)',label:'Medium'   },
+        low:      { color:'var(--blue-l)', bg:'rgba(26,109,232,0.07)',label:'Info'     },
+      };
+      budgetWrap.innerHTML =
+        '<div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6em">Budget Alerts</div>'+
+        '<div style="display:flex;flex-direction:column;gap:0.45em;margin-bottom:1.25em">'+
+        budgets.map(a => {
+          const s = sevCfg[a.severity]||sevCfg.low;
+          return '<div class="alert-item" style="cursor:'+(a.projectIdx!==undefined?'pointer':'default')+'" onclick="'+(a.projectIdx!==undefined?'openProject('+a.projectIdx+')':'')+'">'
+            +'<div class="alert-icon" style="background:'+s.bg+'"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L1 10h10L6 1z" stroke="'+s.color+'" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 5v2.5M6 9v.5" stroke="'+s.color+'" stroke-width="1.4" stroke-linecap="round"/></svg></div>'
+            +'<div class="alert-body"><div class="alert-title">'+a.title+'</div><div class="alert-desc">'+a.desc+'</div></div>'
+            +'<span style="font-size:0.65rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:0.2em 0.55em;border-radius:0.3em;color:'+s.color+';background:'+s.bg+';flex-shrink:0">'+s.label+'</span>'
+            +'</div>';
+        }).join('')+'</div>';
+    } else {
+      budgetWrap.innerHTML = '';
+    }
+  }
 
-  list.innerHTML = alerts.map(a => {
-    const c = sevCfg[a.severity]||sevCfg.low;
-    return '<div class="alert-item" onclick="'+(a.projectIdx!==undefined?'openProject('+a.projectIdx+')':'')+'"><div class="alert-icon" style="background:'+c.bg+'"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L1 10h10L6 1z" stroke="'+c.color+'" stroke-width="1.4" stroke-linejoin="round"/><path d="M6 5v2.5M6 9v.5" stroke="'+c.color+'" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="alert-body"><div class="alert-title">'+a.title+'</div><div class="alert-desc">'+a.desc+'</div></div><span class="tag '+c.cls+' alert-severity">'+c.label+'</span></div>';
+  // Activity notifications
+  const notifList = document.getElementById('notifList');
+  const unread = notifs.filter(n=>!n.read).length;
+  if (markBtn) markBtn.style.display = unread > 0 ? '' : 'none';
+
+  if (!notifs.length && !budgets.length) {
+    if (notifList) notifList.innerHTML = '';
+    empty.style.display = 'flex'; return;
+  }
+  empty.style.display = 'none';
+
+  if (!notifList) return;
+  if (!notifs.length) { notifList.innerHTML = ''; return; }
+
+  // Section header
+  let html = '<div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6em">Activity</div>';
+  html += notifs.map((n,i) => {
+    const cfg = NOTIF_ICONS[n.type] || NOTIF_ICONS.default;
+    const isUnread = !n.read;
+    return '<div class="alert-item" style="cursor:'+(n.projectIdx!==undefined?'pointer':'default')+';opacity:'+(isUnread?1:0.65)+';border-left:2px solid '+(isUnread?'var(--blue)':'transparent')+'" onclick="readNotif('+i+',event)">'
+      +'<div class="alert-icon" style="background:'+cfg.bg+';font-size:0.85rem;display:grid;place-items:center">'+cfg.icon+'</div>'
+      +'<div class="alert-body"><div class="alert-title" style="font-weight:'+(isUnread?700:500)+'">'+n.title+'</div><div class="alert-desc">'+n.body+'</div></div>'
+      +'<span style="font-size:0.7rem;color:var(--muted);white-space:nowrap;flex-shrink:0">'+timeAgo(n.createdAt)+'</span>'
+      +(isUnread?'<div style="width:6px;height:6px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-left:0.25em"></div>':'')
+    +'</div>';
   }).join('');
+  notifList.innerHTML = html;
+}
+
+function readNotif(idx, e) {
+  const n = DB.notifications[idx];
+  if (!n) return;
+  if (!n.read) {
+    n.read = true;
+    if (n._id) sbPatch('notifications','id=eq.'+n._id,{read:true}).catch(console.error);
+    updateAlertsBadge();
+    renderAlerts();
+  }
+  if (n.projectIdx !== undefined && n.projectIdx >= 0) openProject(n.projectIdx);
 }
 
 // ══ REPORTS ══
@@ -3172,6 +3320,7 @@ function saveNewProject() {
   closeModal('newProjModal');
   resetProjectModal();
   renderAll();
+  pushNotif('project_create', 'New project created', 'Project "'+proj.name+'"'+(proj.clientName?' for '+proj.clientName:'')+' was created.', {projectIdx:idx});
   // Await so _id is set before any purchase saves reference this project
   sbSaveProject(proj, idx).then(() => {
     if (proj.laborEnabled) upsertLaborTransaction(idx);
@@ -3225,11 +3374,18 @@ function saveAssignWorkers() {
   if (idx === null) return;
   const workers = Array.from(document.querySelectorAll('#aw-list input[type=checkbox]:checked'))
     .map(cb => cb.dataset.uid);
+  const prevWorkers = DB.projects[idx].assignedWorkers || [];
+  const newlyAdded  = workers.filter(uid => !prevWorkers.includes(uid));
   DB.projects[idx].assignedWorkers = workers;
   closeModal('assignWorkersModal');
   renderProjectDetail(idx);
   renderSidebar();
   sbSaveProject(DB.projects[idx], idx).catch(console.error);
+  if (newlyAdded.length) {
+    const proj = DB.projects[idx];
+    const names = newlyAdded.map(uid => { const m = DB.team.find(t=>t.user_id===uid); return m?(m.firstName+' '+m.lastName).trim():'Worker'; });
+    pushNotif('assigned', names.join(', ')+' assigned to '+proj.name, names.length===1?names[0]+' can now see and log transactions on this project.':''+names.length+' workers added to this project.', {projectIdx:idx});
+  }
 }
 
 // ══ QUICK ADD PURCHASE (from project detail) ══
@@ -3298,6 +3454,8 @@ function saveQuickPurchase() {
   renderAll();
   renderProjectDetail(activeProject);
   sbSavePurchase(pu, puIdx).catch(console.error);
+  const qpProj = DB.projects[activeProject];
+  pushNotif('transaction', (pu.type==='income'?'Income':'Expense')+' logged on '+(qpProj?.name||'project'), '$'+fmt(pu.amount)+' at '+pu.vendor+(pu.category?' · '+pu.category:''), {projectIdx:activeProject});
 }
 
 // ══ FULL ADD PURCHASE (from other views) ══
@@ -3330,6 +3488,8 @@ function saveNewPurchase() {
   renderAll();
   if (activeView==='project'&&activeProject!==null) renderProjectDetail(activeProject);
   sbSavePurchase(pu2, pu2Idx).catch(console.error);
+  const npProj = DB.projects[pu2.projectIdx];
+  pushNotif('transaction', (pu2.type==='income'?'Income':'Expense')+' logged on '+(npProj?.name||'project'), '$'+fmt(pu2.amount)+' at '+pu2.vendor+(pu2.category?' · '+pu2.category:''), {projectIdx:pu2.projectIdx});
 }
 
 // ══ PURCHASE DETAIL / EDIT ══
@@ -3539,6 +3699,7 @@ function saveNewMember() {
   ['tm-first','tm-last','tm-email'].forEach(id=>document.getElementById(id).value='');
   closeModal('newMemberModal'); renderTeam();
   sbSaveTeamMember(nm, nmIdx).catch(console.error);
+  pushNotif('member_join', (nm.firstName+' '+nm.lastName).trim()+' added to team', nm.email?nm.email+' joined as '+nm.role+'.':nm.role+' added to your team.', {});
 }
 
 // ══ DELETE ══
@@ -3800,12 +3961,14 @@ async function saveHourlyRate() {
   const rate = parseFloat(input.value) || 0;
   const m = DB.team[teamIdx];
   if (!m) return;
+  const oldRate = m.hourlyRate;
   m.hourlyRate = rate;
   // Save to team_members row
   try {
     await sbPatch('team_members', 'id=eq.' + m._id, { hourly_rate: rate });
     input.style.borderColor = 'var(--green)';
     setTimeout(() => input.style.borderColor = 'var(--border2)', 1200);
+    if (rate !== oldRate) pushNotif('hourly_rate', (m.firstName+' '+m.lastName).trim()+' hourly rate updated', '$'+rate+'/hr'+(oldRate?' (was $'+oldRate+'/hr)':''), {});
   } catch(e) {
     showToast('Failed to save rate');
   }
