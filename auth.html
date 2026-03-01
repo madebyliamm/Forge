@@ -240,7 +240,16 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 // Redirect if already logged in
 (function() {
-  try { const s = localStorage.getItem('forge_session'); if (s && JSON.parse(s)?.access_token) window.location.replace('dashboard.html'); } catch(e) {}
+  try {
+    const s = localStorage.getItem('forge_session');
+    if (s) {
+      const parsed = JSON.parse(s);
+      const expiresAt = parsed?.expires_at ? parsed.expires_at * 1000 : null;
+      const notExpired = !expiresAt || expiresAt > Date.now();
+      if (parsed?.access_token && notExpired) window.location.replace('dashboard.html');
+      else { localStorage.removeItem('forge_session'); localStorage.removeItem('forge_company_id'); }
+    }
+  } catch(e) { localStorage.removeItem('forge_session'); }
   // Check if arriving from invite link (?code=XXXXXX)
   const code = new URLSearchParams(window.location.search).get('code');
   if (code) window.addEventListener('DOMContentLoaded', () => {
