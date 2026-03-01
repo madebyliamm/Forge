@@ -989,63 +989,61 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 
       <!-- ══ SHOP ══ -->
       <div class="view" id="view-shop">
-        <!-- full-height scrollable wrapper centered -->
-        <div style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:2em 1em">
-          <div style="width:100%;max-width:640px">
+        <div style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:2.5em 1.5em">
+          <div style="width:100%;max-width:620px">
 
             <!-- ── Header ── -->
-            <div style="text-align:center;margin-bottom:2.25em">
-              <div style="display:inline-flex;align-items:center;gap:0.45em;margin-bottom:0.6em">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink:0">
+            <div style="text-align:center;margin-bottom:2.5em">
+              <div style="display:inline-flex;align-items:center;justify-content:center;gap:0.5em;margin-bottom:0.75em">
+                <svg width="26" height="26" viewBox="0 0 22 22" fill="none" style="flex-shrink:0">
                   <path d="M2 2.5h2.2L6 11.5h9.5l1.8-6H6.5" stroke="#4a8ff0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
                   <circle cx="8.5" cy="15.5" r="1.5" fill="#4a8ff0"/>
                   <circle cx="14" cy="15.5" r="1.5" fill="#4a8ff0"/>
                 </svg>
-                <span style="font-size:1.5rem;font-weight:700;letter-spacing:-0.035em">Forge AI Shopper</span>
-                <span style="font-size:0.5rem;font-weight:800;background:rgba(74,143,240,0.2);color:#4a8ff0;padding:0.22em 0.55em;border-radius:0.3em;letter-spacing:0.1em;margin-top:2px">BETA</span>
+                <span style="font-size:2rem;font-weight:700;letter-spacing:-0.04em">Forge AI Shopper</span>
+                <span style="font-size:0.48rem;font-weight:800;background:rgba(74,143,240,0.2);color:#4a8ff0;padding:0.25em 0.55em;border-radius:0.3em;letter-spacing:0.1em;margin-top:4px">BETA</span>
               </div>
-              <p style="font-size:0.84rem;color:var(--muted);margin:0;line-height:1.6">Describe what you need — the AI finds the best materials, tools,<br>and supplies matched to your project and remaining budget.</p>
+              <p style="font-size:0.9rem;color:rgba(255,255,255,0.55);margin:0;line-height:1.65;font-weight:400">Tell it what you need. It searches the web for real products,<br>compares prices, and checks your project budget — instantly.</p>
             </div>
 
-            <!-- ── Search box ── -->
-            <div style="background:var(--surface);border:1px solid var(--border2);border-radius:1.1em;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.4);margin-bottom:1.75em">
-              <textarea id="shop-input"
-                placeholder="e.g. PVC pipe fittings, pool pump, concrete mix, copper wire..."
-                rows="3"
-                style="width:100%;background:transparent;border:none;padding:1.15em 1.25em 0.5em;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.95rem;resize:none;outline:none;line-height:1.55;display:block;box-sizing:border-box"
+            <!-- ── Search box (ChatGPT style) ── -->
+            <div style="position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:1em;box-shadow:0 8px 40px rgba(0,0,0,0.45);margin-bottom:2em;display:flex;align-items:center;padding:0.7em 0.7em 0.7em 1.15em;gap:0.5em">
+              <!-- Placeholder cycling done via JS on the textarea -->
+              <textarea id="shop-input" rows="1"
+                style="flex:1;background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.95rem;resize:none;outline:none;line-height:1.5;overflow:hidden;padding:0;max-height:160px"
+                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,160)+'px';shopCheckInput()"
                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();}"></textarea>
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:0.7em 1em 0.8em">
-                <span style="font-size:0.71rem;color:var(--muted)">
-                  <kbd style="background:var(--surface2);border:1px solid var(--border2);border-radius:0.3em;padding:0.1em 0.45em;font-family:inherit;font-size:0.95em;color:var(--text2)">↵</kbd>
-                  &nbsp;to search &nbsp;·&nbsp; coming soon
-                </span>
-                <button disabled style="display:flex;align-items:center;gap:0.4em;background:var(--blue);color:#fff;border:none;border-radius:0.6em;padding:0.55em 1.15em;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;cursor:not-allowed;opacity:0.45">
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.65"/><path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"/></svg>
-                  Search
-                </button>
+              <!-- Animated placeholder sits behind textarea when empty -->
+              <div id="shop-placeholder" style="position:absolute;left:1.15em;top:50%;transform:translateY(-50%);pointer-events:none;font-size:0.95rem;color:rgba(255,255,255,0.3);white-space:nowrap;overflow:hidden;max-width:calc(100% - 80px)">
+                <span id="shop-ph-text" style="transition:opacity 0.4s ease">Concrete mix for foundation work...</span>
               </div>
+              <!-- Send button -->
+              <button id="shop-send-btn" disabled onclick="shopSend()"
+                style="flex-shrink:0;width:34px;height:34px;border-radius:50%;border:none;background:#4a8ff0;color:#fff;cursor:not-allowed;opacity:0.35;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s,transform 0.1s">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 12V3M3 7l4.5-4.5L12 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
             </div>
 
             <!-- ── Project selector ── -->
             <div>
-              <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);text-align:center;margin-bottom:0.8em">Attach a project for context</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:0.5em;margin-bottom:0.9em">
+                <div style="height:1px;flex:1;background:var(--border)"></div>
+                <span style="font-size:0.75rem;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:0.04em;white-space:nowrap">Select a project for context</span>
+                <div style="height:1px;flex:1;background:var(--border)"></div>
+              </div>
 
-              <!-- chips rendered by JS -->
-              <div id="shop-proj-chips" style="display:flex;gap:0.45em;flex-wrap:wrap;justify-content:center;margin-bottom:1em"></div>
+              <div id="shop-proj-chips" style="display:flex;gap:0.5em;flex-wrap:wrap;justify-content:center;margin-bottom:0.85em"></div>
 
-              <!-- detail panel — slides open -->
+              <!-- detail panel slides open -->
               <div id="shop-proj-detail"
-                style="max-height:0;overflow:hidden;opacity:0;transition:max-height 0.45s cubic-bezier(0.16,1,0.3,1),opacity 0.3s ease,transform 0.4s cubic-bezier(0.16,1,0.3,1);transform:translateY(-8px)">
-                <div style="background:var(--surface);border:1px solid var(--border);border-radius:0.9em;padding:1.15em 1.3em">
-                  <!-- project name row -->
+                style="max-height:0;overflow:hidden;opacity:0;transition:max-height 0.45s cubic-bezier(0.16,1,0.3,1),opacity 0.3s ease,transform 0.4s cubic-bezier(0.16,1,0.3,1);transform:translateY(-6px)">
+                <div style="background:var(--surface);border-radius:0.9em;padding:1.15em 1.3em">
                   <div style="display:flex;align-items:center;gap:0.65em;margin-bottom:1em">
-                    <div id="shop-proj-dot" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#4a8ff0"></div>
+                    <div id="shop-proj-dot" style="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#4a8ff0"></div>
                     <div id="shop-proj-name" style="font-weight:700;font-size:0.95rem;letter-spacing:-0.01em"></div>
-                    <div id="shop-proj-client" style="font-size:0.77rem;color:var(--muted);margin-left:0.1em"></div>
+                    <div id="shop-proj-client" style="font-size:0.77rem;color:var(--muted)"></div>
                   </div>
-                  <!-- budget stats row -->
                   <div id="shop-budget-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5em;margin-bottom:1em;padding-bottom:1em;border-bottom:1px solid var(--border)"></div>
-                  <!-- category chips -->
                   <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:0.55em">Categories</div>
                   <div id="shop-categories-row" style="display:flex;gap:0.4em;flex-wrap:wrap"></div>
                 </div>
@@ -3649,6 +3647,48 @@ function shopInit() {
   if (shopProjectIdx !== null && DB.projects[shopProjectIdx]) {
     shopSelectProject(shopProjectIdx, false);
   }
+  // Start placeholder cycling
+  shopStartPlaceholder();
+}
+
+const SHOP_PLACEHOLDERS = [
+  'Concrete mix for foundation work...',
+  'PVC pipe fittings and connectors...',
+  'LED work lights for job site...',
+  'Lumber and framing hardware...',
+  'Pool pump and filter system...',
+];
+let shopPhIdx = 0;
+let shopPhInterval = null;
+
+function shopStartPlaceholder() {
+  if (shopPhInterval) return;
+  const textarea = document.getElementById('shop-input');
+  const phText   = document.getElementById('shop-ph-text');
+  if (!phText) return;
+  phText.textContent = SHOP_PLACEHOLDERS[0];
+  shopPhInterval = setInterval(() => {
+    if (textarea && textarea.value) return; // don't cycle if user typed
+    phText.style.opacity = '0';
+    setTimeout(() => {
+      shopPhIdx = (shopPhIdx + 1) % SHOP_PLACEHOLDERS.length;
+      phText.textContent = SHOP_PLACEHOLDERS[shopPhIdx];
+      phText.style.opacity = '1';
+    }, 400);
+  }, 2600);
+}
+
+function shopCheckInput() {
+  const textarea = document.getElementById('shop-input');
+  const btn      = document.getElementById('shop-send-btn');
+  const ph       = document.getElementById('shop-placeholder');
+  const hasText  = textarea && textarea.value.trim().length > 0;
+  if (btn) {
+    btn.disabled   = !hasText;
+    btn.style.opacity  = hasText ? '1' : '0.35';
+    btn.style.cursor   = hasText ? 'pointer' : 'not-allowed';
+  }
+  if (ph) ph.style.display = hasText ? 'none' : '';
 }
 
 function shopSelectProject(idx, animate) {
@@ -3715,11 +3755,11 @@ function shopRenderBudget() {
     const catBudget = catBudgetPct ? Math.round(p.budget * catBudgetPct / 100) : null;
     const remaining = catBudget ? catBudget - catSpent : null;
     const label = catBudget
-      ? `${cat} <span style="opacity:0.6">·</span> $${fmt(Math.max(0,remaining))} left`
+      ? `${cat} <span style="color:var(--muted)">·</span> $${fmt(Math.max(0,remaining))} left`
       : `${cat}`;
-    const bg  = catBudget && remaining < 0 ? 'rgba(232,64,64,0.12)' : 'var(--surface2)';
-    const bdr = catBudget && remaining < 0 ? 'rgba(232,64,64,0.3)' : 'var(--border)';
-    return `<div style="font-size:0.73rem;padding:0.32em 0.75em;border-radius:2em;background:${bg};border:1px solid ${bdr};color:var(--text2);font-weight:500">${label}</div>`;
+    const bg  = catBudget && remaining < 0 ? 'rgba(232,64,64,0.15)' : 'rgba(255,255,255,0.06)';
+    const col = catBudget && remaining < 0 ? 'var(--orange)' : 'var(--text2)';
+    return `<div style="font-size:0.73rem;padding:0.32em 0.75em;border-radius:2em;background:${bg};color:${col};font-weight:500">${label}</div>`;
   }).join('');
 
   // Update welcome placeholder
